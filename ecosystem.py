@@ -6,6 +6,7 @@ import tkinter as tk
 from typing import Dict, List, Optional, Tuple, Type, TypeVar
 
 from organisms import Carnivore, Herbivore, Organism, Plant
+import config
 
 TOrganism = TypeVar("TOrganism", bound=Organism)
 Position = Tuple[int, int]
@@ -264,7 +265,8 @@ class Ecosystem:
 
         print(
             f"--- Tick {self.tick_count} | Plants: {plant_count} "
-            f"| Herbivores: {herbivore_count} | Carnivores: {carnivore_count} ---"
+            f"| Herbivores: {herbivore_count} | Carnivores: {carnivore_count} "
+            f"| Season: {config.get_current_season(self.tick_count)} ---"
         )
         for row in grid_rows:
             print(" ".join(row))
@@ -289,5 +291,9 @@ class Ecosystem:
             "avg_energy": avg_energy,
             "tick_time_ms": self._last_tick_ms,
             "organism_count": len(self.organisms),
+            "season": config.get_current_season(self.tick_count),
+            "season_emoji": config.SEASON_EMOJIS.get(
+                config.get_current_season(self.tick_count), ""
+            ),
         }
         self.ui_manager.update(data)

@@ -46,7 +46,12 @@ class UIManager:
         if self._eco.window_closed:
             return
         state_text = "Running" if self._eco.is_auto else "Paused"
-        self._status_label.config(text=f"Tick {data.get('tick', 0)} — {state_text}")
+        season = data.get("season", "")
+        season_emoji = data.get("season_emoji", "")
+        season_str = f"  {season_emoji} {season}" if season else ""
+        self._status_label.config(
+            text=f"Tick {data.get('tick', 0)} — {state_text}{season_str}"
+        )
         self._update_grid(data)
         self._stats_panel.update_stats(data)
         self._chart.draw(
@@ -298,15 +303,7 @@ class UIManager:
         self._params_frame = frame
         self._params_labels: List[tk.Label] = []
 
-        from organisms import (
-            CARNIVORE_ENERGY_GAIN, CARNIVORE_MAX_AGE,
-            CARNIVORE_REPRODUCTION_CHANCE, CARNIVORE_REPRODUCTION_COST,
-            CARNIVORE_REPRODUCTION_THRESHOLD,
-            HERBIVORE_ENERGY_GAIN, HERBIVORE_MAX_AGE,
-            HERBIVORE_REPRODUCTION_CHANCE, HERBIVORE_REPRODUCTION_COST,
-            HERBIVORE_REPRODUCTION_THRESHOLD,
-            PLANT_MAX_AGE, PLANT_REPRODUCTION_CHANCE,
-        )
+        import config as _cfg
 
         eco = self._eco
         sections = [
@@ -315,24 +312,25 @@ class UIManager:
                 ("Initial Plants", str(eco._init_plants)),
                 ("Initial Herbivores", str(eco._init_herbivores)),
                 ("Initial Carnivores", str(eco._init_carnivores)),
+                ("Active Preset", _cfg.active_preset_name()),
             ]),
             ("Plant Constants", [
-                ("Reproduction Chance", f"{PLANT_REPRODUCTION_CHANCE:.0%}"),
-                ("Max Age", str(PLANT_MAX_AGE)),
+                ("Reproduction Chance", f"{_cfg.get('PLANT_REPRODUCTION_CHANCE'):.0%}"),
+                ("Max Age", str(_cfg.get('PLANT_MAX_AGE'))),
             ]),
             ("Herbivore Constants", [
-                ("Energy Gain", str(HERBIVORE_ENERGY_GAIN)),
-                ("Repro Threshold", str(HERBIVORE_REPRODUCTION_THRESHOLD)),
-                ("Repro Chance", f"{HERBIVORE_REPRODUCTION_CHANCE:.0%}"),
-                ("Repro Cost", str(HERBIVORE_REPRODUCTION_COST)),
-                ("Max Age", str(HERBIVORE_MAX_AGE)),
+                ("Energy Gain", str(_cfg.get('HERBIVORE_ENERGY_GAIN'))),
+                ("Repro Threshold", str(_cfg.get('HERBIVORE_REPRODUCTION_THRESHOLD'))),
+                ("Repro Chance", f"{_cfg.get('HERBIVORE_REPRODUCTION_CHANCE'):.0%}"),
+                ("Repro Cost", str(_cfg.get('HERBIVORE_REPRODUCTION_COST'))),
+                ("Max Age", str(_cfg.get('HERBIVORE_MAX_AGE'))),
             ]),
             ("Carnivore Constants", [
-                ("Energy Gain", str(CARNIVORE_ENERGY_GAIN)),
-                ("Repro Threshold", str(CARNIVORE_REPRODUCTION_THRESHOLD)),
-                ("Repro Chance", f"{CARNIVORE_REPRODUCTION_CHANCE:.0%}"),
-                ("Repro Cost", str(CARNIVORE_REPRODUCTION_COST)),
-                ("Max Age", str(CARNIVORE_MAX_AGE)),
+                ("Energy Gain", str(_cfg.get('CARNIVORE_ENERGY_GAIN'))),
+                ("Repro Threshold", str(_cfg.get('CARNIVORE_REPRODUCTION_THRESHOLD'))),
+                ("Repro Chance", f"{_cfg.get('CARNIVORE_REPRODUCTION_CHANCE'):.0%}"),
+                ("Repro Cost", str(_cfg.get('CARNIVORE_REPRODUCTION_COST'))),
+                ("Max Age", str(_cfg.get('CARNIVORE_MAX_AGE'))),
             ]),
         ]
 
