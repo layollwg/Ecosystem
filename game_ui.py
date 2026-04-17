@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, Optional
 
+from dpi_aware import apply_windows_dpi_awareness
 from ui_theme import Theme
 from ui_config_panel import ConfigPanel
 from ui_simulation_panel import SimulationPanel
@@ -27,6 +28,7 @@ class GameUI:
     """
 
     def __init__(self) -> None:
+        apply_windows_dpi_awareness()
         self._root = tk.Tk()
         self._root.title("🌍  ECOSYSTEM SIMULATOR")
         self._root.minsize(_MIN_W, _MIN_H)
@@ -83,6 +85,7 @@ class GameUI:
             ecosystem=eco,
             total_ticks=self._total_ticks,
             on_pause_toggle=self._on_pause_toggle,
+            on_step=self._on_step,
             on_stop=self._on_stop_simulation,
             on_speed_change=self._on_speed_change,
         )
@@ -209,6 +212,42 @@ class GameUI:
         if not self._sim_paused:
             # Resume the tick loop
             self._schedule_tick()
+
+    def _on_step(self) -> None:
+        """Execute exactly one simulation tick then remain paused (step-forward)."""
+        if self._eco is None:
+            return
+
+        # Ensure the simulation is paused before stepping
+        if not self._sim_paused:
+            self._sim_paused = True
+            # Cancel any pending auto-tick
+            if self._after_id is not None:
+                self._root.after_cancel(self._after_id)
+                self._after_id = None
+            try:
+                self._sim_panel.set_paused(True)
+            except (tk.TclError, AttributeError):
+                pass
+
+        eco = self._eco
+
+        # Check termination conditions before stepping
+        if not eco.organisms:
+            self._finish_simulation("All organisms have perished.")
+            return
+        if eco.tick_count >= self._total_ticks:
+            self._finish_simulation("Simulation complete.")
+            return
+
+        # Advance exactly one tick
+        eco.step()
+
+        try:
+            self._sim_panel.update_display(eco.get_display_data())
+        except tk.TclError:
+            pass
+        # Do NOT schedule the next tick — stay paused.
 
     def _on_speed_change(self, delay: float) -> None:
         if self._eco is not None:
