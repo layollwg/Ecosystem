@@ -250,9 +250,11 @@ class SimulationPanel(tk.Frame):
                     if isinstance(occupant, Plant):
                         fill, symbol = t["plant_fill"], "🌿"
                     elif isinstance(occupant, Herbivore):
-                        fill, symbol = t["herbivore_fill"], "🐇"
+                        # Use genome-derived phenotype colour so players can
+                        # observe evolutionary change visually over time.
+                        fill, symbol = occupant.genome.get_hex_color(), "🐇"
                     elif isinstance(occupant, Carnivore):
-                        fill, symbol = t["carnivore_fill"], "🐺"
+                        fill, symbol = occupant.genome.get_hex_color(), "🐺"
                     else:
                         fill, symbol = t.get("accent_bg", "#444"), "?"
                 else:
@@ -301,12 +303,15 @@ class SimulationPanel(tk.Frame):
             else:
                 icon  = "🐇" if kind == "Herbivore" else "🐺"
                 color = t["text_herbivore"] if kind == "Herbivore" else t["text_carnivore"]
+                g = occupant.genome  # type: ignore[attr-defined]
                 lines = [
                     f"{icon}  {kind}  ({gx}, {gy})",
-                    f"Age: {occupant.age}",
-                    f"Energy: {occupant.energy}",  # type: ignore[attr-defined]
+                    f"Age: {occupant.age}  |  Energy: {occupant.energy:.1f}",  # type: ignore[attr-defined]
+                    f"Size: {g.size:.2f}  Speed: {g.speed:.2f}  Vision: {g.vision}",
+                    f"Metabolism: {g.metabolism:.2f}  |  {g.get_hex_color()}",
                 ]
-                colors = [color, t.get("fg_secondary", t["fg"]), t.get("fg_accent", t["fg"])]
+                secondary = t.get("fg_secondary", t["fg"])
+                colors = [color, secondary, secondary, secondary]
         else:
             lines  = [f"Empty  ({gx}, {gy})"]
             colors = [t["label_fg"]]
