@@ -47,7 +47,9 @@ class Ecosystem:
         self.advance_var: Optional[tk.IntVar] = None
         self.ui_manager = None  # type: ignore[assignment]
 
-        self.cell_size = 24
+        # Scale cell size so the grid fits comfortably on screen:
+        # targets ~32 px for a 25×25 grid, clamped to [20, 40].
+        self.cell_size = max(20, min(40, 800 // max(grid_size, 1)))
         self.window_closed = False
         self.stop_requested = False
         self.is_auto = not self.manual_step

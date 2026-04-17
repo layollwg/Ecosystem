@@ -2,66 +2,104 @@ from __future__ import annotations
 
 from typing import Dict
 
-# Light theme colour palette
+# ── Modern light theme ────────────────────────────────────────────────────────
 LIGHT: Dict[str, str] = {
-    "bg": "#ffffff",
-    "fg": "#000000",
-    "grid_bg": "#f7f7f7",
-    "grid_line": "#cccccc",
-    "plant_fill": "#82c784",
-    "herbivore_fill": "#ffd54f",
-    "carnivore_fill": "#e57373",
-    "empty_fill": "#ffffff",
-    "panel_bg": "#f0f0f0",
-    "button_bg": "#e3f2fd",
-    "button_fg": "#000000",
-    "button_active_bg": "#bbdefb",
-    "chart_bg": "#f7f7f7",
-    "chart_axis": "#444444",
-    "chart_plant": "#388e3c",
+    # Backgrounds
+    "bg":              "#f5f7fa",
+    "card_bg":         "#ffffff",
+    "panel_bg":        "#eef1f6",
+    "accent_bg":       "#e3f2fd",
+    "header_bg":       "#1a237e",
+    # Text
+    "fg":              "#1a1a2e",
+    "fg_secondary":    "#555577",
+    "fg_accent":       "#1565c0",
+    "fg_highlight":    "#2e7d32",
+    # Grid
+    "grid_bg":         "#fafafa",
+    "grid_line":       "#dde1e7",
+    "empty_fill":      "#f5f5f5",
+    # Organisms
+    "plant_fill":      "#c8e6c9",
+    "herbivore_fill":  "#fff9c4",
+    "carnivore_fill":  "#ffcdd2",
+    "text_plant":      "#2e7d32",
+    "text_herbivore":  "#e65100",
+    "text_carnivore":  "#b71c1c",
+    # Buttons
+    "button_bg":       "#1565c0",
+    "button_fg":       "#ffffff",
+    "button_active_bg": "#0d47a1",
+    "button_border":   "#1565c0",
+    # Chart
+    "chart_bg":        "#fafafa",
+    "chart_axis":      "#888888",
+    "chart_grid":      "#eeeeee",
+    "chart_plant":     "#388e3c",
     "chart_herbivore": "#f9a825",
     "chart_carnivore": "#c62828",
-    "text_plant": "#2e7d32",
-    "text_herbivore": "#e65100",
-    "text_carnivore": "#b71c1c",
-    "label_fg": "#333333",
-    "legend_bg": "#ffffff",
-    "legend_outline": "#cccccc",
-    "stat_positive": "#2e7d32",
-    "stat_negative": "#c62828",
-    "stat_neutral": "#555555",
-    "perf_fg": "#1565c0",
+    # Stats / labels
+    "label_fg":        "#555577",
+    "legend_bg":       "#ffffff",
+    "legend_outline":  "#cccccc",
+    "stat_positive":   "#2e7d32",
+    "stat_negative":   "#c62828",
+    "stat_neutral":    "#777777",
+    "perf_fg":         "#1565c0",
+    # Borders
+    "border":          "#dde1e7",
+    "border_glow":     "#1565c0",
+    "separator":       "#e0e0e0",
 }
 
-# Dark theme colour palette
+# ── Game-inspired dark theme (Slay the Spire / Hades style) ──────────────────
 DARK: Dict[str, str] = {
-    "bg": "#1e1e1e",
-    "fg": "#e0e0e0",
-    "grid_bg": "#2d2d2d",
-    "grid_line": "#444444",
-    "plant_fill": "#66bb6a",
-    "herbivore_fill": "#ffb74d",
-    "carnivore_fill": "#ef5350",
-    "empty_fill": "#2d2d2d",
-    "panel_bg": "#252526",
-    "button_bg": "#1565c0",
-    "button_fg": "#ffffff",
-    "button_active_bg": "#0d47a1",
-    "chart_bg": "#2d2d2d",
-    "chart_axis": "#888888",
-    "chart_plant": "#81c784",
-    "chart_herbivore": "#ffb74d",
-    "chart_carnivore": "#ef9a9a",
-    "text_plant": "#a5d6a7",
-    "text_herbivore": "#ffe082",
-    "text_carnivore": "#ef9a9a",
-    "label_fg": "#aaaaaa",
-    "legend_bg": "#333333",
-    "legend_outline": "#555555",
-    "stat_positive": "#a5d6a7",
-    "stat_negative": "#ef9a9a",
-    "stat_neutral": "#aaaaaa",
-    "perf_fg": "#90caf9",
+    # Backgrounds
+    "bg":              "#1a1a2e",
+    "card_bg":         "#16213e",
+    "panel_bg":        "#16213e",
+    "accent_bg":       "#0f3460",
+    "header_bg":       "#0d1117",
+    # Text
+    "fg":              "#e8e8e8",
+    "fg_secondary":    "#a8a8a8",
+    "fg_accent":       "#00d4ff",
+    "fg_highlight":    "#00ff88",
+    # Grid
+    "grid_bg":         "#16213e",
+    "grid_line":       "#0f3460",
+    "empty_fill":      "#1e2d4d",
+    # Organisms
+    "plant_fill":      "#1a4a2e",
+    "herbivore_fill":  "#4a3210",
+    "carnivore_fill":  "#4a1a1a",
+    "text_plant":      "#2ecc71",
+    "text_herbivore":  "#f39c12",
+    "text_carnivore":  "#e74c3c",
+    # Buttons
+    "button_bg":       "#0f3460",
+    "button_fg":       "#00d4ff",
+    "button_active_bg": "#1a4a80",
+    "button_border":   "#00d4ff",
+    # Chart
+    "chart_bg":        "#0d1117",
+    "chart_axis":      "#445566",
+    "chart_grid":      "#1e2840",
+    "chart_plant":     "#2ecc71",
+    "chart_herbivore": "#f39c12",
+    "chart_carnivore": "#e74c3c",
+    # Stats / labels
+    "label_fg":        "#a8a8a8",
+    "legend_bg":       "#16213e",
+    "legend_outline":  "#0f3460",
+    "stat_positive":   "#00ff88",
+    "stat_negative":   "#ff4444",
+    "stat_neutral":    "#a8a8a8",
+    "perf_fg":         "#00d4ff",
+    # Borders
+    "border":          "#0f3460",
+    "border_glow":     "#00d4ff",
+    "separator":       "#0f3460",
 }
 
 
