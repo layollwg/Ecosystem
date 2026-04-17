@@ -172,9 +172,16 @@ class SimulationPanel(tk.Frame):
         self._camera.viewport_width  = event.width
         self._camera.viewport_height = event.height
         if not self._camera_initialized:
-            self._camera.reset_view()
+            self._camera.reset_view(ui_padding_x=self._stats_padding())
             self._camera_initialized = True
         self._update_grid()
+
+    def _stats_padding(self) -> int:
+        """Return the horizontal pixel width to reserve for the stats overlay."""
+        w = self._stats_overlay.winfo_reqwidth()
+        # Add 8 px left margin (the overlay is placed at x=8) plus an 8 px
+        # right gap so the map does not start flush against the panel edge.
+        return (w + 16) if w > 0 else 320
 
     def _on_mousewheel(self, event: tk.Event) -> None:  # type: ignore[type-arg]
         # Windows / macOS: event.delta > 0 means scroll up => zoom in
@@ -203,7 +210,7 @@ class SimulationPanel(tk.Frame):
         self._update_grid()
 
     def _on_reset_view(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
-        self._camera.reset_view()
+        self._camera.reset_view(ui_padding_x=self._stats_padding())
         self._update_grid()
 
     # ── Grid rendering ────────────────────────────────────────────────────────

@@ -91,15 +91,39 @@ class CameraSystem:
         self.camera_y = wy - screen_y / self.zoom
         self._clamp()
 
-    def reset_view(self) -> None:
-        """Fit the entire world into the current viewport (default view)."""
+    def reset_view(self, ui_padding_x: int = 0, ui_padding_y: int = 0) -> None:
+        """Fit the entire world into the viewport, offsetting for UI panel padding.
+
+        Parameters
+        ----------
+        ui_padding_x:
+            Horizontal screen pixels occupied by a UI panel on the left
+            (e.g. the stats overlay).  The world will be fitted into the
+            remaining area and rendered starting at screen-x = *ui_padding_x*
+            so it is never hidden behind that panel.
+        ui_padding_y:
+            Vertical screen pixels occupied by a UI panel at the top.
+        """
         if self.world_width <= 0 or self.world_height <= 0:
             return
-        zoom_x = self.viewport_width / self.world_width
-        zoom_y = self.viewport_height / self.world_height
+        usable_w = max(1, self.viewport_width  - ui_padding_x)
+        usable_h = max(1, self.viewport_height - ui_padding_y)
+        zoom_x = usable_w / self.world_width
+        zoom_y = usable_h / self.world_height
         self.zoom = max(self.MIN_ZOOM, min(self.MAX_ZOOM, min(zoom_x, zoom_y)))
-        self.camera_x = 0.0
-        self.camera_y = 0.0
+        # Centre the world inside the usable area, then shift right/down by
+        # the padding so world(0,0) appears at screen_x = ui_padding_x.
+        world_screen_w = self.world_width  * self.zoom
+        world_screen_h = self.world_height * self.zoom
+        extra_x = max(0.0, usable_w - world_screen_w)
+        extra_y = max(0.0, usable_h - world_screen_h)
+        offset_x = ui_padding_x + extra_x / 2
+        offset_y = ui_padding_y + extra_y / 2
+        # camera_x is the world-coordinate at the left edge of the viewport.
+        # For world(0,0) to land at screen_x=offset_x:
+        #   offset_x = (0 - camera_x) * zoom  =>  camera_x = -offset_x / zoom
+        self.camera_x = -offset_x / self.zoom
+        self.camera_y = -offset_y / self.zoom
 
     def get_visible_bounds(self) -> tuple[float, float, float, float]:
         """Return ``(min_wx, min_wy, max_wx, max_wy)`` in world-pixel coordinates.
@@ -115,8 +139,18 @@ class CameraSystem:
     # ── Internals ─────────────────────────────────────────────────────────────
 
     def _clamp(self) -> None:
-        """Clamp camera position to prevent panning outside the world boundary."""
-        max_cam_x = max(0.0, self.world_width - self.viewport_width / self.zoom)
+        """Clamp camera to keep the world visible.
+
+        The upper bounds prevent panning past the world's far edges.  The lower
+        bounds allow *slightly negative* camera coordinates so that the world
+        can be rendered offset from screen (0, 0) — this is used when a UI
+        panel covers the top-left corner and we want to start the world to the
+        right / below it.  The minimum is capped at ``-viewport / zoom`` so
+        the world cannot be panned entirely off-screen.
+        """
+        max_cam_x = max(0.0, self.world_width  - self.viewport_width  / self.zoom)
         max_cam_y = max(0.0, self.world_height - self.viewport_height / self.zoom)
-        self.camera_x = max(0.0, min(max_cam_x, self.camera_x))
-        self.camera_y = max(0.0, min(max_cam_y, self.camera_y))
+        min_cam_x = -(self.viewport_width  / self.zoom)
+        min_cam_y = -(self.viewport_height / self.zoom)
+        self.camera_x = max(min_cam_x, min(max_cam_x, self.camera_x))
+        self.camera_y = max(min_cam_y, min(max_cam_y, self.camera_y))

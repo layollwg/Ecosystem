@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
-from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ui_theme import Theme
@@ -284,6 +284,112 @@ class PlaybackOverlay(tk.Frame):
         return self._speed_var
 
 
+# ── PopulationChartModal ──────────────────────────────────────────────────────
+
+class PopulationChartModal:
+    """Full-screen population-history chart shown in a separate Toplevel window.
+
+    Opens a Toplevel dialog sized to 80 % of the parent window.  Displays a
+    large :class:`~ui_widgets.EnhancedChart` so long-term trends are clearly
+    visible.
+
+    Usage::
+
+        modal = PopulationChartModal(root_window, theme)
+        modal.open(plant_history, herb_history, carn_history)
+    """
+
+    def __init__(self, parent: tk.Tk, theme: "Theme") -> None:
+        self._parent = parent
+        self._theme = theme
+        self._window: Optional[tk.Toplevel] = None
+
+    def open(
+        self,
+        plant_history: List[int],
+        herbivore_history: List[int],
+        carnivore_history: List[int],
+    ) -> None:
+        """Open (or bring to front) the chart modal with the given histories."""
+        if self._window is not None:
+            try:
+                self._window.lift()
+                self._window.focus_set()
+                return
+            except tk.TclError:
+                self._window = None
+
+        t = self._theme
+        win = tk.Toplevel(self._parent)
+        self._window = win
+        win.title("📈 Population History")
+        win.configure(bg=t["bg"])
+        win.transient(self._parent)
+
+        # Size: 80 % of the parent window, centred over it
+        pw = max(self._parent.winfo_width(),  400)
+        ph = max(self._parent.winfo_height(), 300)
+        w  = int(pw * 0.82)
+        h  = int(ph * 0.82)
+        x  = self._parent.winfo_rootx() + (pw - w) // 2
+        y  = self._parent.winfo_rooty() + (ph - h) // 2
+        win.geometry(f"{w}x{h}+{x}+{y}")
+        win.minsize(560, 360)
+
+        # Header bar
+        hdr = tk.Frame(win, bg=t["panel_bg"], pady=8)
+        hdr.pack(fill="x", padx=12, pady=(8, 0))
+
+        tk.Label(
+            hdr, text="📈  Population History",
+            font=(_UI_FONT, 14, "bold"),
+            bg=t["panel_bg"], fg=t.get("fg_accent", t["fg"]),
+        ).pack(side="left", padx=4)
+
+        tk.Button(
+            hdr, text="✕  Close",
+            font=(_UI_FONT, 10, "bold"),
+            bg=t["button_bg"], fg=t["button_fg"],
+            activebackground=t["button_active_bg"],
+            relief="flat", padx=8, pady=4,
+            cursor="hand2",
+            command=win.destroy,
+        ).pack(side="right")
+
+        # Thin separator
+        tk.Frame(win, bg=t.get("border_glow", t["border"]), height=1).pack(
+            fill="x", padx=12, pady=(4, 0)
+        )
+
+        # Large chart
+        from ui_widgets import EnhancedChart
+
+        chart = EnhancedChart(win, t, bg=t["chart_bg"])
+        chart.pack(fill="both", expand=True, padx=12, pady=(8, 12))
+
+        # Draw once the widget has been sized
+        win.update_idletasks()
+        chart.draw(plant_history, herbivore_history, carnivore_history)
+
+        # Keep chart up-to-date if the window is resized
+        def _on_resize(event: tk.Event) -> None:  # type: ignore[type-arg]
+            chart.draw(plant_history, herbivore_history, carnivore_history)
+
+        chart.bind("<Configure>", _on_resize)
+
+        # Clean up reference when the window is closed
+        win.protocol("WM_DELETE_WINDOW", self._on_close)
+        win.bind("<Escape>", lambda _e: win.destroy())
+
+    def _on_close(self) -> None:
+        if self._window is not None:
+            try:
+                self._window.destroy()
+            except tk.TclError:
+                pass
+        self._window = None
+
+
 # ── DrawerPanel ───────────────────────────────────────────────────────────────
 
 class DrawerPanel(tk.Frame):
@@ -311,6 +417,11 @@ class DrawerPanel(tk.Frame):
         self._is_open = True
         self._stats_panel: Optional[Any] = None
         self._chart: Optional[Any] = None
+        # Cached history so the full-chart modal can display it
+        self._plant_history:     List[int] = []
+        self._herbivore_history: List[int] = []
+        self._carnivore_history: List[int] = []
+        self._chart_modal: Optional[PopulationChartModal] = None
         self._build()
 
     def _build(self) -> None:
@@ -354,14 +465,31 @@ class DrawerPanel(tk.Frame):
         self._stats_panel.pack(fill="x")
 
         # Chart section
-        tk.Frame(self._content, bg=t.get("border_glow", t["border"]), height=1).pack(
-            fill="x", pady=(4, 0)
+        chart_hdr = tk.Frame(self._content, bg=bg)
+        chart_hdr.pack(fill="x", pady=(4, 0))
+        tk.Frame(chart_hdr, bg=t.get("border_glow", t["border"]), height=1).pack(
+            fill="x"
         )
+        chart_title_row = tk.Frame(chart_hdr, bg=bg)
+        chart_title_row.pack(fill="x")
         tk.Label(
-            self._content, text="📈 Population History",
+            chart_title_row, text="📈 Population History",
             font=(_UI_FONT, 10, "bold"),
             bg=bg, fg=t.get("fg_accent", t["fg"]),
-        ).pack(anchor="w", padx=8, pady=(4, 2))
+        ).pack(side="left", padx=8, pady=(4, 2))
+
+        # "View Full Chart" button sits on the same row as the section title
+        # so it is always visible regardless of window height.
+        tk.Button(
+            chart_title_row,
+            text="⛶ Full",
+            font=(_UI_FONT, 8),
+            bg=t["button_bg"], fg=t["button_fg"],
+            activebackground=t["button_active_bg"],
+            relief="flat", padx=4, pady=1,
+            cursor="hand2",
+            command=self._open_chart_modal,
+        ).pack(side="right", padx=(0, 8), pady=(4, 2))
 
         self._chart = EnhancedChart(
             self._content, self._theme,
@@ -388,6 +516,9 @@ class DrawerPanel(tk.Frame):
 
     def update_data(self, data: Dict[str, Any]) -> None:
         """Update internal stats panel and chart from a simulation data dict."""
+        self._plant_history     = data.get("plant_history",      [])
+        self._herbivore_history = data.get("herbivore_history",  [])
+        self._carnivore_history = data.get("carnivore_history",  [])
         if self._stats_panel is not None:
             try:
                 self._stats_panel.update_stats(data)
@@ -396,9 +527,20 @@ class DrawerPanel(tk.Frame):
         if self._chart is not None:
             try:
                 self._chart.draw(
-                    data.get("plant_history", []),
-                    data.get("herbivore_history", []),
-                    data.get("carnivore_history", []),
+                    self._plant_history,
+                    self._herbivore_history,
+                    self._carnivore_history,
                 )
             except tk.TclError:
                 pass
+
+    def _open_chart_modal(self) -> None:
+        """Open (or raise) the full-screen population-history chart."""
+        root = self.winfo_toplevel()
+        if self._chart_modal is None:
+            self._chart_modal = PopulationChartModal(root, self._theme)
+        self._chart_modal.open(
+            self._plant_history,
+            self._herbivore_history,
+            self._carnivore_history,
+        )
