@@ -6,6 +6,7 @@ import tkinter as tk
 from typing import Dict, List, Optional, Tuple, Type, TypeVar
 
 from organisms import Carnivore, Herbivore, Organism, Plant
+import config
 
 TOrganism = TypeVar("TOrganism", bound=Organism)
 Position = Tuple[int, int]
@@ -42,6 +43,7 @@ class Ecosystem:
         self.auto_button: Optional[tk.Button] = None
         self.quit_button: Optional[tk.Button] = None
         self.control_frame: Optional[tk.Frame] = None
+        self.season_label: Optional[tk.Label] = None
         self.cell_size = 24
         self.window_closed = False
         self.advance_var: Optional[tk.IntVar] = None
@@ -231,6 +233,14 @@ class Ecosystem:
         )
         self.carnivore_label.pack(side="left", padx=8)
 
+        self.season_label = tk.Label(
+            counts_frame,
+            text="Season: —",
+            font=("Consolas", 11),
+            fg="#5c6bc0",
+        )
+        self.season_label.pack(side="left", padx=8)
+
         self.control_frame = tk.Frame(self.window)
         self.control_frame.pack(pady=4)
 
@@ -330,7 +340,8 @@ class Ecosystem:
 
         print(
             f"--- Tick {self.tick_count} | Plants: {plant_count} "
-            f"| Herbivores: {herbivore_count} | Carnivores: {carnivore_count} ---"
+            f"| Herbivores: {herbivore_count} | Carnivores: {carnivore_count} "
+            f"| Season: {config.get_current_season(self.tick_count)} ---"
         )
         for row in grid:
             print(" ".join(row))
@@ -393,6 +404,10 @@ class Ecosystem:
             self.herbivore_label.config(text=f"Herbivores: {herbivore_count}")
         if self.carnivore_label:
             self.carnivore_label.config(text=f"Carnivores: {carnivore_count}")
+        if self.season_label:
+            season = config.get_current_season(self.tick_count)
+            emoji = config.SEASON_EMOJIS.get(season, "")
+            self.season_label.config(text=f"Season: {emoji} {season}")
 
         self._draw_history_chart()
 
