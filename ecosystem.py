@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 import time
 import tkinter as tk
-from typing import Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 from organisms import Carnivore, Herbivore, Organism, Plant
 import config
@@ -192,6 +192,100 @@ class Ecosystem:
                 if 0 <= nx < self.grid_size and 0 <= ny < self.grid_size:
                     positions.append((nx, ny))
         return positions
+
+    def step(self) -> None:
+        """Advance the simulation by exactly one tick (used by GameUI tick loop)."""
+        if not self.organisms:
+            return
+
+        self.tick_count += 1
+        tick_start = time.time()
+
+        order = list(self.organisms)
+        random.shuffle(order)
+
+        for organism in order:
+            if not organism.alive:
+                continue
+            organism.update(self)
+
+        self._finalize_tick()
+        self._last_tick_ms = (time.time() - tick_start) * 1000
+
+        # Record population history
+        plant_count = sum(1 for o in self.organisms if isinstance(o, Plant) and o.alive)
+        herb_count = sum(1 for o in self.organisms if isinstance(o, Herbivore) and o.alive)
+        carn_count = sum(1 for o in self.organisms if isinstance(o, Carnivore) and o.alive)
+        self.plant_history.append(plant_count)
+        self.herbivore_history.append(herb_count)
+        self.carnivore_history.append(carn_count)
+
+    def get_display_data(self) -> Dict[str, Any]:
+        """Compute and return the current display data dict for UI panels."""
+        plant_count = 0
+        herbivore_count = 0
+        carnivore_count = 0
+        total_age = 0
+        age_count = 0
+        total_energy = 0.0
+        energy_count = 0
+
+        for organism in self.organisms:
+            if not organism.alive:
+                continue
+            total_age += organism.age
+            age_count += 1
+            if isinstance(organism, Plant):
+                plant_count += 1
+            elif isinstance(organism, Herbivore):
+                herbivore_count += 1
+                total_energy += organism.energy
+                energy_count += 1
+            elif isinstance(organism, Carnivore):
+                carnivore_count += 1
+                total_energy += organism.energy
+                energy_count += 1
+
+        avg_age = total_age / age_count if age_count > 0 else 0.0
+        avg_energy = total_energy / energy_count if energy_count > 0 else 0.0
+        season = config.get_current_season(self.tick_count)
+
+        return {
+            "tick": self.tick_count,
+            "plant_count": plant_count,
+            "herbivore_count": herbivore_count,
+            "carnivore_count": carnivore_count,
+            "plant_history": self.plant_history,
+            "herbivore_history": self.herbivore_history,
+            "carnivore_history": self.carnivore_history,
+            "births_this_tick": self.births_this_tick,
+            "deaths_this_tick": self.deaths_this_tick,
+            "avg_age": avg_age,
+            "avg_energy": avg_energy,
+            "tick_time_ms": self._last_tick_ms,
+            "organism_count": len(self.organisms),
+            "season": season,
+            "season_emoji": config.SEASON_EMOJIS.get(season, ""),
+        }
+
+    def get_statistics(self) -> Dict[str, Any]:
+        """Return a summary statistics dict suitable for the result panel."""
+        plant_count = sum(1 for o in self.organisms if isinstance(o, Plant) and o.alive)
+        herb_count = sum(1 for o in self.organisms if isinstance(o, Herbivore) and o.alive)
+        carn_count = sum(1 for o in self.organisms if isinstance(o, Carnivore) and o.alive)
+        return {
+            "tick": self.tick_count,
+            "plant_count": plant_count,
+            "herbivore_count": herb_count,
+            "carnivore_count": carn_count,
+            "plant_history": list(self.plant_history),
+            "herbivore_history": list(self.herbivore_history),
+            "carnivore_history": list(self.carnivore_history),
+            "init_plants": self._init_plants,
+            "init_herbivores": self._init_herbivores,
+            "init_carnivores": self._init_carnivores,
+            "grid_size": self.grid_size,
+        }
 
     def get_adjacent_empty_cells(self, x: int, y: int) -> List[Position]:
         return [
