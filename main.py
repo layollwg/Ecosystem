@@ -94,16 +94,16 @@ def collect_simulation_parameters(args: argparse.Namespace) -> tuple[int, int, i
     print()
 
     grid_size = args.grid_size if args.grid_size is not None else prompt_positive_int(
-        "Enter grid size (e.g., 20 for a 20x20 grid): "
+        "Enter grid size (recommended: 25 for a 25×25 grid): "
     )
     num_plants = args.plants if args.plants is not None else prompt_positive_int(
-        "Enter initial number of plants: "
+        "Enter initial number of plants (recommended: 80): "
     )
     num_herbivores = args.herbivores if args.herbivores is not None else prompt_positive_int(
-        "Enter initial number of herbivores: "
+        "Enter initial number of herbivores (recommended: 30): "
     )
     num_carnivores = args.carnivores if args.carnivores is not None else prompt_positive_int(
-        "Enter initial number of carnivores: "
+        "Enter initial number of carnivores (recommended: 5): "
     )
 
     total_organisms = num_plants + num_herbivores + num_carnivores

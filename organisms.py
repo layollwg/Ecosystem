@@ -109,6 +109,10 @@ class Herbivore(Animal):
         if not self.alive:
             return
 
+        # Flee from adjacent carnivores before attempting any other action.
+        if self._flee(ecosystem):
+            return
+
         plant = self._eat(ecosystem)
         if plant:
             ecosystem.queue_remove_organism(plant)
@@ -119,7 +123,29 @@ class Herbivore(Animal):
             if not plant:
                 self.move(ecosystem)
 
+    def _flee(self, ecosystem: Ecosystem) -> bool:
+        """Move away from adjacent carnivores.  Returns True if the herbivore fled."""
+        carnivores = ecosystem.get_adjacent_organisms(self.x, self.y, Carnivore)
+        if not carnivores:
+            return False
+
+        empty_cells = ecosystem.get_adjacent_empty_cells(self.x, self.y)
+        if not empty_cells:
+            return False
+
+        avg_cx = sum(c.x for c in carnivores) / len(carnivores)
+        avg_cy = sum(c.y for c in carnivores) / len(carnivores)
+        best = max(
+            empty_cells,
+            key=lambda cell: (cell[0] - avg_cx) ** 2 + (cell[1] - avg_cy) ** 2,
+        )
+        ecosystem.move_organism(self, best[0], best[1])
+        return True
+
     def _eat(self, ecosystem: Ecosystem) -> Optional[Plant]:
+        # Satiation: skip eating when energy is already high enough.
+        if self.energy >= config.get("HERBIVORE_SATIATION_THRESHOLD"):
+            return None
         plants = ecosystem.get_adjacent_organisms(self.x, self.y, Plant)
         if not plants:
             return None
@@ -127,6 +153,11 @@ class Herbivore(Animal):
 
     def _try_reproduce(self, ecosystem: Ecosystem) -> bool:
         if self.energy <= config.get("HERBIVORE_REPRODUCTION_THRESHOLD"):
+            return False
+        # Density-dependent suppression: don't reproduce when the neighbourhood
+        # is already crowded with the same species.
+        nearby = ecosystem.get_adjacent_organisms(self.x, self.y, Herbivore)
+        if len(nearby) >= config.get("HERBIVORE_CROWDING_THRESHOLD"):
             return False
         if random.random() >= config.get("HERBIVORE_REPRODUCTION_CHANCE"):
             return False
@@ -166,6 +197,9 @@ class Carnivore(Animal):
                 self.move(ecosystem)
 
     def _hunt(self, ecosystem: Ecosystem) -> Optional[Herbivore]:
+        # Satiation: skip hunting when energy is already high enough.
+        if self.energy >= config.get("CARNIVORE_SATIATION_THRESHOLD"):
+            return None
         herbivores = ecosystem.get_adjacent_organisms(self.x, self.y, Herbivore)
         if not herbivores:
             return None
@@ -173,6 +207,11 @@ class Carnivore(Animal):
 
     def _try_reproduce(self, ecosystem: Ecosystem) -> bool:
         if self.energy <= config.get("CARNIVORE_REPRODUCTION_THRESHOLD"):
+            return False
+        # Density-dependent suppression: don't reproduce when the neighbourhood
+        # is already crowded with the same species.
+        nearby = ecosystem.get_adjacent_organisms(self.x, self.y, Carnivore)
+        if len(nearby) >= config.get("CARNIVORE_CROWDING_THRESHOLD"):
             return False
         if random.random() >= config.get("CARNIVORE_REPRODUCTION_CHANCE"):
             return False
