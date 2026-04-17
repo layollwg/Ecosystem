@@ -143,6 +143,13 @@ class Ecosystem:
         if self.window and not self.window_closed:
             self.ui_manager.set_simulation_complete()
             self.window.update()
+            # Keep the window open and processing events until user closes it
+            while not self.window_closed:
+                try:
+                    self.window.update()
+                    time.sleep(0.05)  # Prevent busy-waiting
+                except tk.TclError:
+                    break
 
     def _finalize_tick(self) -> None:
         self.deaths_this_tick = len(self._pending_removals)
