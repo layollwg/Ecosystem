@@ -66,6 +66,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run the simulation in manual step-by-step mode",
     )
+    parser.add_argument(
+        "--theme",
+        choices=["light", "dark"],
+        default="light",
+        help="UI colour theme (default: light)",
+    )
     return parser.parse_args()
 
 
@@ -80,7 +86,7 @@ def prompt_non_negative_float(prompt: str) -> float:
             print("Please enter a non-negative number.")
 
 
-def collect_simulation_parameters(args: argparse.Namespace) -> tuple[int, int, int, int, int, float, bool]:
+def collect_simulation_parameters(args: argparse.Namespace) -> tuple[int, int, int, int, int, float, bool, str]:
     preset_name = prompt_preset(args)
     config.load_preset(preset_name)
     print(f"\nLoaded preset '{preset_name}': {config.PRESETS[preset_name]['description']}")
@@ -142,6 +148,7 @@ def collect_simulation_parameters(args: argparse.Namespace) -> tuple[int, int, i
         total_ticks,
         delay,
         manual_mode,
+        args.theme,
     )
 
 
@@ -156,6 +163,7 @@ def main() -> None:
             total_ticks,
             delay,
             manual_mode,
+            theme,
         ) = collect_simulation_parameters(args)
     except ValueError as exc:
         print(exc)
@@ -168,6 +176,7 @@ def main() -> None:
         num_carnivores=num_carnivores,
         tick_delay=delay,
         manual_step=manual_mode,
+        theme=theme,
     )
 
     try:
