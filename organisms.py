@@ -7,31 +7,14 @@ from typing import TYPE_CHECKING, List, Optional, Tuple, Type, TypeVar
 if TYPE_CHECKING:
     from ecosystem import Ecosystem
 
+import config
 
 Position = Tuple[int, int]
 
-# Simulation constants
+# Display symbols (constant — not part of the configurable preset).
 PLANT_SYMBOL = "P"
-PLANT_REPRODUCTION_CHANCE = 0.10
-PLANT_MAX_AGE = 30
-
 HERBIVORE_SYMBOL = "H"
-HERBIVORE_INITIAL_ENERGY = 15
-HERBIVORE_CHILD_ENERGY = 10
-HERBIVORE_ENERGY_GAIN = 10
-HERBIVORE_REPRODUCTION_THRESHOLD = 20
-HERBIVORE_REPRODUCTION_CHANCE = 0.15
-HERBIVORE_REPRODUCTION_COST = 8
-HERBIVORE_MAX_AGE = 50
-
 CARNIVORE_SYMBOL = "C"
-CARNIVORE_INITIAL_ENERGY = 25
-CARNIVORE_CHILD_ENERGY = 20
-CARNIVORE_ENERGY_GAIN = 15
-CARNIVORE_REPRODUCTION_THRESHOLD = 40
-CARNIVORE_REPRODUCTION_CHANCE = 0.10
-CARNIVORE_REPRODUCTION_COST = 20
-CARNIVORE_MAX_AGE = 60
 
 TAnimal = TypeVar("TAnimal", bound="Animal")
 
@@ -61,14 +44,14 @@ class Plant(Organism):
     """Stationary organism that can spread to adjacent empty cells."""
 
     def __init__(self, x: int, y: int) -> None:
-        super().__init__(x, y, PLANT_SYMBOL, PLANT_MAX_AGE)
+        super().__init__(x, y, PLANT_SYMBOL, config.get("PLANT_MAX_AGE"))
 
     def update(self, ecosystem: Ecosystem) -> None:
         self.age_one_tick(ecosystem)
         if not self.alive:
             return
 
-        if random.random() >= PLANT_REPRODUCTION_CHANCE:
+        if random.random() >= config.get_plant_reproduction_chance(ecosystem.tick_count):
             return
 
         empty_cells = ecosystem.get_adjacent_empty_cells(self.x, self.y)
@@ -94,7 +77,7 @@ class Animal(Organism, ABC):
         self.energy = energy
 
     def update(self, ecosystem: Ecosystem) -> None:  # type: ignore[override]
-        self.energy -= 1
+        self.energy -= 1 + config.get_animal_extra_energy_cost(ecosystem.tick_count)
         if self.energy <= 0:
             ecosystem.queue_remove_organism(self)
             return
@@ -116,8 +99,10 @@ class Animal(Organism, ABC):
 class Herbivore(Animal):
     """Animal that eats plants for energy."""
 
-    def __init__(self, x: int, y: int, energy: int = HERBIVORE_INITIAL_ENERGY) -> None:
-        super().__init__(x, y, HERBIVORE_SYMBOL, energy, HERBIVORE_MAX_AGE)
+    def __init__(self, x: int, y: int, energy: Optional[int] = None) -> None:
+        if energy is None:
+            energy = config.get("HERBIVORE_INITIAL_ENERGY")
+        super().__init__(x, y, HERBIVORE_SYMBOL, energy, config.get("HERBIVORE_MAX_AGE"))
 
     def update(self, ecosystem: Ecosystem) -> None:
         super().update(ecosystem)
@@ -127,11 +112,11 @@ class Herbivore(Animal):
         plant = self._eat(ecosystem)
         if plant:
             ecosystem.queue_remove_organism(plant)
-            self.energy += HERBIVORE_ENERGY_GAIN
+            self.energy += config.get("HERBIVORE_ENERGY_GAIN")
             ecosystem.move_organism(self, plant.x, plant.y)
-        else:
-            reproduced = self._try_reproduce(ecosystem)
-            if not reproduced:
+
+        if not self._try_reproduce(ecosystem):
+            if not plant:
                 self.move(ecosystem)
 
     def _eat(self, ecosystem: Ecosystem) -> Optional[Plant]:
@@ -141,9 +126,9 @@ class Herbivore(Animal):
         return random.choice(plants)
 
     def _try_reproduce(self, ecosystem: Ecosystem) -> bool:
-        if self.energy <= HERBIVORE_REPRODUCTION_THRESHOLD:
+        if self.energy <= config.get("HERBIVORE_REPRODUCTION_THRESHOLD"):
             return False
-        if random.random() >= HERBIVORE_REPRODUCTION_CHANCE:
+        if random.random() >= config.get("HERBIVORE_REPRODUCTION_CHANCE"):
             return False
 
         empty_cells = ecosystem.get_adjacent_empty_cells(self.x, self.y)
@@ -151,8 +136,8 @@ class Herbivore(Animal):
             return False
 
         child_x, child_y = random.choice(empty_cells)
-        self.energy -= HERBIVORE_REPRODUCTION_COST
-        child = Herbivore(child_x, child_y, HERBIVORE_CHILD_ENERGY)
+        self.energy -= config.get("HERBIVORE_REPRODUCTION_COST")
+        child = Herbivore(child_x, child_y, config.get("HERBIVORE_CHILD_ENERGY"))
         ecosystem.queue_add_organism(child)
         return True
 
@@ -160,8 +145,10 @@ class Herbivore(Animal):
 class Carnivore(Animal):
     """Animal that hunts herbivores for energy."""
 
-    def __init__(self, x: int, y: int, energy: int = CARNIVORE_INITIAL_ENERGY) -> None:
-        super().__init__(x, y, CARNIVORE_SYMBOL, energy, CARNIVORE_MAX_AGE)
+    def __init__(self, x: int, y: int, energy: Optional[int] = None) -> None:
+        if energy is None:
+            energy = config.get("CARNIVORE_INITIAL_ENERGY")
+        super().__init__(x, y, CARNIVORE_SYMBOL, energy, config.get("CARNIVORE_MAX_AGE"))
 
     def update(self, ecosystem: Ecosystem) -> None:
         super().update(ecosystem)
@@ -171,11 +158,11 @@ class Carnivore(Animal):
         herbivore = self._hunt(ecosystem)
         if herbivore:
             ecosystem.queue_remove_organism(herbivore)
-            self.energy += CARNIVORE_ENERGY_GAIN
+            self.energy += config.get("CARNIVORE_ENERGY_GAIN")
             ecosystem.move_organism(self, herbivore.x, herbivore.y)
-        else:
-            reproduced = self._try_reproduce(ecosystem)
-            if not reproduced:
+
+        if not self._try_reproduce(ecosystem):
+            if not herbivore:
                 self.move(ecosystem)
 
     def _hunt(self, ecosystem: Ecosystem) -> Optional[Herbivore]:
@@ -185,9 +172,9 @@ class Carnivore(Animal):
         return random.choice(herbivores)
 
     def _try_reproduce(self, ecosystem: Ecosystem) -> bool:
-        if self.energy <= CARNIVORE_REPRODUCTION_THRESHOLD:
+        if self.energy <= config.get("CARNIVORE_REPRODUCTION_THRESHOLD"):
             return False
-        if random.random() >= CARNIVORE_REPRODUCTION_CHANCE:
+        if random.random() >= config.get("CARNIVORE_REPRODUCTION_CHANCE"):
             return False
 
         empty_cells = ecosystem.get_adjacent_empty_cells(self.x, self.y)
@@ -195,7 +182,7 @@ class Carnivore(Animal):
             return False
 
         child_x, child_y = random.choice(empty_cells)
-        self.energy -= CARNIVORE_REPRODUCTION_COST
-        child = Carnivore(child_x, child_y, CARNIVORE_CHILD_ENERGY)
+        self.energy -= config.get("CARNIVORE_REPRODUCTION_COST")
+        child = Carnivore(child_x, child_y, config.get("CARNIVORE_CHILD_ENERGY"))
         ecosystem.queue_add_organism(child)
         return True
