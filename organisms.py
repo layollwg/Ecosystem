@@ -30,6 +30,7 @@ class Organism(ABC):
         self.y = y
         self.symbol = symbol
         self.alive = True
+        self.agent_id = -1
         self.age = 0
         self.max_age = max_age
 
