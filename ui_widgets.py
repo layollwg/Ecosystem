@@ -15,8 +15,9 @@ _MONO_FONT = "Courier New"
 class TooltipManager:
     """Shows a styled popup tooltip near the mouse cursor (game hover-card style)."""
 
-    def __init__(self, root: tk.Tk) -> None:
+    def __init__(self, root: tk.Tk, theme: "Optional[Theme]" = None) -> None:
         self._root = root
+        self._theme = theme
         self._window: Optional[tk.Toplevel] = None
         self._frame: Optional[tk.Frame] = None
         self._labels: List[tk.Label] = []
@@ -27,22 +28,32 @@ class TooltipManager:
         ``lines`` is a list of text strings; ``colors`` is a matching list of
         hex colour strings for each line's foreground.
         """
+        t = self._theme
+        border_color = t["border_glow"] if t is not None else "#00d4ff"
+        bg_color     = t["card_bg"]     if t is not None else "#16213e"
         if self._window is None:
             self._window = tk.Toplevel(self._root)
             self._window.wm_overrideredirect(True)
             self._window.attributes("-topmost", True)
             outer = tk.Frame(
                 self._window,
-                bg="#00d4ff",
+                bg=border_color,
                 padx=1, pady=1,
             )
             outer.pack()
             self._frame = tk.Frame(
                 outer,
-                bg="#16213e",
+                bg=bg_color,
                 padx=8, pady=6,
             )
             self._frame.pack()
+        else:
+            # Update border/bg colors in case theme changed since last show
+            assert self._frame is not None
+            outer_widget = self._frame.master
+            if isinstance(outer_widget, tk.Frame):
+                outer_widget.config(bg=border_color)
+            self._frame.config(bg=bg_color)
 
         assert self._frame is not None
 
@@ -52,7 +63,7 @@ class TooltipManager:
                 self._frame,
                 text="",
                 justify="left",
-                bg="#16213e",
+                bg=bg_color,
                 font=(_UI_FONT, 10),
                 anchor="w",
             )
@@ -62,7 +73,7 @@ class TooltipManager:
         # Hide any extra labels
         for i, lbl in enumerate(self._labels):
             if i < len(lines):
-                lbl.config(text=lines[i], fg=colors[i])
+                lbl.config(text=lines[i], fg=colors[i], bg=bg_color)
                 lbl.pack(anchor="w")
             else:
                 lbl.pack_forget()
@@ -72,7 +83,9 @@ class TooltipManager:
 
     def show_simple(self, text: str, x: int, y: int) -> None:
         """Convenience wrapper for a plain single-line tooltip."""
-        self.show([text], ["#e8e8e8"], x, y)
+        t = self._theme
+        fg = t["fg"] if t is not None else "#e8e8e8"
+        self.show([text], [fg], x, y)
 
     def hide(self) -> None:
         if self._window is not None:

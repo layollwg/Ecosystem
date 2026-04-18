@@ -27,6 +27,7 @@ class ConfigPanel(tk.Frame):
 
     Shows preset quick-select buttons and sliders for all key parameters.
     Calls ``on_start(params)`` when the user confirms the configuration.
+    Optionally calls ``on_theme_change(mode)`` when a theme button is clicked.
     """
 
     def __init__(
@@ -34,12 +35,15 @@ class ConfigPanel(tk.Frame):
         parent: tk.Widget,
         theme: "Theme",
         on_start: Callable[[Dict[str, Any]], None],
+        on_theme_change: Optional[Callable[[str], None]] = None,
     ) -> None:
         super().__init__(parent)
         self._theme = theme
         self._on_start = on_start
+        self._on_theme_change = on_theme_change
         self._preset_var = tk.StringVar(value="stable")
         self._preset_btn_refs: List[tuple] = []
+        self._theme_btn_refs: List[tuple] = []
         self._build()
 
     # ── Build ──────────────────────────────────────────────────────────────────
@@ -110,6 +114,10 @@ class ConfigPanel(tk.Frame):
         right = tk.Frame(body, bg=t["bg"])
         right.pack(side="right", fill="both", expand=True, padx=(8, 0))
 
+        # ── Theme selector ────────────────────────────────────────────────────
+        if self._on_theme_change is not None:
+            self._build_theme_selector(left)
+
         # ── Presets ───────────────────────────────────────────────────────────
         self._build_presets(left)
 
@@ -166,6 +174,40 @@ class ConfigPanel(tk.Frame):
         ).pack(side="right", padx=4)
 
     # ── Preset section ────────────────────────────────────────────────────────
+
+    def _build_theme_selector(self, parent: tk.Widget) -> None:
+        t = self._theme
+        card = self._card(parent, "🎨  Theme")
+
+        btn_row = tk.Frame(card, bg=t["card_bg"])
+        btn_row.pack(fill="x", pady=(0, 4))
+
+        _theme_options: List[tuple] = [
+            ("nature", "🌿 Nature"),
+            ("dark",   "🌑 Dark"),
+            ("light",  "☀️ Light"),
+        ]
+
+        self._theme_btn_refs = []
+        for mode, label in _theme_options:
+            is_active = mode == t.mode
+            btn = tk.Button(
+                btn_row,
+                text=label,
+                font=(_UI_FONT, 10, "bold"),
+                bg=t["button_bg"] if is_active else t["panel_bg"],
+                fg=t["button_fg"] if is_active else t["fg"],
+                activebackground=t["button_active_bg"],
+                relief="flat", padx=8, pady=5,
+                cursor="hand2",
+                command=lambda m=mode: self._select_theme(m),
+            )
+            btn.pack(side="left", padx=4, pady=4, expand=True, fill="x")
+            self._theme_btn_refs.append((mode, btn))
+
+    def _select_theme(self, mode: str) -> None:
+        if self._on_theme_change is not None:
+            self._on_theme_change(mode)
 
     def _build_presets(self, parent: tk.Widget) -> None:
         t = self._theme

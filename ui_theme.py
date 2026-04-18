@@ -1,6 +1,56 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Optional
+
+# ── Sunlit Nature Palette (向阳生态) ──────────────────────────────────────────
+NATURE_LIGHT: Dict[str, str] = {
+    # Backgrounds
+    "bg":              "#FDFBF7",   # warm sandy white — main window & empty grid
+    "card_bg":         "#FFFFFF",   # pure white cards
+    "panel_bg":        "#F8FAFC",   # very light gray-white panels
+    "accent_bg":       "#ECFDF5",   # pale mint — accent background
+    "header_bg":       "#166534",   # deep forest green header
+    # Text
+    "fg":              "#166534",   # deep forest green — primary text
+    "fg_secondary":    "#64748B",   # slate gray — secondary text
+    "fg_accent":       "#10B981",   # emerald green — accents / links
+    "fg_highlight":    "#22C55E",   # spring green — highlights
+    # Grid
+    "grid_bg":         "#FDFBF7",   # warm white grid background
+    "grid_line":       "#ECFDF5",   # barely-visible pale-green grid lines
+    "empty_fill":      "#FDFBF7",   # same as grid_bg — empty cells
+    # Organisms
+    "plant_fill":      "#DCFCE7",   # pale spring-green plant cells
+    "herbivore_fill":  "#FEF3C7",   # pale amber herbivore cells
+    "carnivore_fill":  "#FEE2E2",   # pale rose carnivore cells
+    "text_plant":      "#22C55E",   # vivid spring green
+    "text_herbivore":  "#F59E0B",   # warm amber
+    "text_carnivore":  "#EF4444",   # berry red
+    # Buttons
+    "button_bg":       "#10B981",   # emerald green buttons
+    "button_fg":       "#FFFFFF",
+    "button_active_bg": "#059669",  # darker emerald on hover
+    "button_border":   "#10B981",
+    # Chart
+    "chart_bg":        "#F8FAFC",
+    "chart_axis":      "#94A3B8",   # cool slate
+    "chart_grid":      "#E2E8F0",
+    "chart_plant":     "#22C55E",
+    "chart_herbivore": "#F59E0B",
+    "chart_carnivore": "#EF4444",
+    # Stats / labels
+    "label_fg":        "#64748B",
+    "legend_bg":       "#FFFFFF",
+    "legend_outline":  "#E2E8F0",
+    "stat_positive":   "#22C55E",
+    "stat_negative":   "#EF4444",
+    "stat_neutral":    "#94A3B8",
+    "perf_fg":         "#10B981",
+    # Borders
+    "border":          "#E2E8F0",   # light gray border
+    "border_glow":     "#A7F3D0",   # pale leaf-green glow
+    "separator":       "#E2E8F0",
+}
 
 # ── Modern light theme ────────────────────────────────────────────────────────
 LIGHT: Dict[str, str] = {
@@ -103,21 +153,50 @@ DARK: Dict[str, str] = {
 }
 
 
-class Theme:
-    """Manages the active colour scheme and supports light/dark toggling."""
+_PALETTES: Dict[str, Dict[str, str]] = {
+    "dark":   DARK,
+    "light":  LIGHT,
+    "nature": NATURE_LIGHT,
+}
 
-    def __init__(self, is_dark: bool = False) -> None:
-        self._is_dark = is_dark
-        self._colors: Dict[str, str] = DARK.copy() if is_dark else LIGHT.copy()
+
+class Theme:
+    """Manages the active colour scheme.
+
+    Supports three modes:
+    * ``"dark"``   — game-inspired dark theme (default for backward compat)
+    * ``"light"``  — modern light theme
+    * ``"nature"`` — Sunlit Nature Palette (向阳生态)
+    """
+
+    def __init__(self, mode: str = "dark", *, is_dark: Optional[bool] = None) -> None:
+        # Legacy is_dark kwarg kept for backward compatibility
+        if is_dark is not None:
+            mode = "dark" if is_dark else "light"
+        self._mode = mode if mode in _PALETTES else "dark"
+        self._colors: Dict[str, str] = _PALETTES[self._mode].copy()
+
+    @property
+    def mode(self) -> str:
+        return self._mode
 
     @property
     def is_dark(self) -> bool:
-        return self._is_dark
+        """True only for the dark theme (kept for backward compatibility)."""
+        return self._mode == "dark"
+
+    def set_mode(self, mode: str) -> None:
+        """Switch to the given palette mode ("dark", "light", or "nature")."""
+        if mode not in _PALETTES:
+            return
+        self._mode = mode
+        self._colors = _PALETTES[mode].copy()
 
     def toggle(self) -> None:
-        """Switch between light and dark mode."""
-        self._is_dark = not self._is_dark
-        self._colors = DARK.copy() if self._is_dark else LIGHT.copy()
+        """Cycle through dark → light → nature → dark …"""
+        modes = list(_PALETTES.keys())
+        next_idx = (modes.index(self._mode) + 1) % len(modes)
+        self.set_mode(modes[next_idx])
 
     def get(self, key: str, fallback: str = "#000000") -> str:
         return self._colors.get(key, fallback)

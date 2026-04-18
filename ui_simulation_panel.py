@@ -128,7 +128,7 @@ class SimulationPanel(tk.Frame):
         self._camera = CameraSystem(1, 1, world_w, world_h)
 
         # 3. Tooltip (hover card on grid cells)
-        self._tooltip = TooltipManager(self.winfo_toplevel())
+        self._tooltip = TooltipManager(self.winfo_toplevel(), theme=self._theme)
 
         # 4. Overlay panels (placed on top of the canvas via place() geometry)
         #    Stats — top-left
