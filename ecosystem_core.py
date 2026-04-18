@@ -29,6 +29,31 @@ class RewardConfig:
     invalid_collision: float = -1.0
     failed_reproduce: float = -0.2
     death_penalty: float = -10.0
+    living_penalty: float = 0.0
+    energy_delta_scale: float = 0.0
+    death_penalty_starvation: Optional[float] = None
+    death_penalty_predation: Optional[float] = None
+    death_penalty_old_age: Optional[float] = None
+    include_agent_breakdown: bool = False
+
+    @classmethod
+    def for_api_version(cls, api_version: str) -> "RewardConfig":
+        if api_version == "v2":
+            return cls(
+                eat_success=5.0,
+                reproduce_success=10.0,
+                move_cost=-0.05,
+                invalid_collision=-0.1,
+                failed_reproduce=-0.2,
+                death_penalty=-5.0,
+                living_penalty=-0.01,
+                energy_delta_scale=0.1,
+                death_penalty_starvation=None,
+                death_penalty_predation=None,
+                death_penalty_old_age=0.0,
+                include_agent_breakdown=False,
+            )
+        return cls()
 
 
 class EcosystemCore:
@@ -63,6 +88,13 @@ class EcosystemCore:
     MIN_SPEED_NORMALIZER = 0.5
     # Shared observation normalization constant for animal energy channel.
     ENERGY_NORMALIZATION_BASE = 150.0
+    V1_OBSERVATION_CHANNELS = 5
+    V2_OBSERVATION_CHANNELS = 6
+    REPRODUCTION_MATURITY_AGE_RATIO = 0.2
+    REPRODUCTION_ENERGY_THRESHOLD = 0.6
+    REPRODUCTION_AGE_EXPONENT = 1.5
+    # For carnivore-vs-carnivore threat assessment, 1.1 means 10% size advantage.
+    PREDATOR_SIZE_THRESHOLD = 1.1
 
     def __init__(
         self,
@@ -74,6 +106,7 @@ class EcosystemCore:
         manual_step: bool = False,
         theme: str = "light",
         observation_radius: int = 2,
+        api_version: str = "v1",
         reward_config: Optional[RewardConfig] = None,
     ) -> None:
         self.grid_size = grid_size
@@ -102,10 +135,15 @@ class EcosystemCore:
         self._last_tick_ms = 0.0
 
         self.observation_radius = max(1, observation_radius)
-        self.reward_config = reward_config or RewardConfig()
+        self.api_version = api_version if api_version in ("v1", "v2") else "v1"
+        base_reward_cfg = RewardConfig.for_api_version(self.api_version)
+        self.reward_config = reward_config if reward_config is not None else base_reward_cfg
 
         self._next_agent_id = 1
         self._step_rewards: Dict[int, float] = {}
+        self._step_reward_breakdown: Dict[int, Dict[str, float]] = {}
+        self._reward_breakdown_totals: Dict[str, float] = {}
+        self._death_reasons_this_tick: Dict[str, int] = {}
 
         self.reset()
 
@@ -124,6 +162,10 @@ class EcosystemCore:
         self.deaths_this_tick = 0
         self._last_tick_ms = 0.0
         self._next_agent_id = 1
+        self._step_rewards.clear()
+        self._step_reward_breakdown.clear()
+        self._reward_breakdown_totals.clear()
+        self._death_reasons_this_tick.clear()
 
         self._generate_terrain()
         self._populate_initial_organisms(
@@ -147,7 +189,15 @@ class EcosystemCore:
 
         pre_agents = self._alive_animals()
         pre_agent_ids = {a.agent_id for a in pre_agents}
+        pre_energy_by_id = {a.agent_id: a.energy for a in pre_agents}
         self._step_rewards = {agent_id: 0.0 for agent_id in pre_agent_ids}
+        self._step_reward_breakdown = {agent_id: {} for agent_id in pre_agent_ids}
+        self._reward_breakdown_totals = {}
+        self._death_reasons_this_tick = {}
+
+        if self.reward_config.living_penalty != 0.0:
+            for agent in pre_agents:
+                self._reward(agent, self.reward_config.living_penalty, component="living_penalty")
 
         order = list(self.organisms)
         random.shuffle(order)
@@ -170,6 +220,20 @@ class EcosystemCore:
         self._last_tick_ms = (time.time() - tick_start) * 1000
         self._record_population_history()
 
+        if self.reward_config.energy_delta_scale != 0.0:
+            post_energy_by_id = {a.agent_id: a.energy for a in self._alive_animals()}
+            for agent_id, pre_energy in pre_energy_by_id.items():
+                post_energy = post_energy_by_id.get(agent_id)
+                if post_energy is None:
+                    continue
+                delta = post_energy - pre_energy
+                if delta > 0:
+                    self._reward_by_id(
+                        agent_id,
+                        delta * self.reward_config.energy_delta_scale,
+                        component="energy_delta",
+                    )
+
         post_agent_ids = {a.agent_id for a in self._alive_animals()}
         rewards = {aid: self._step_rewards.get(aid, 0.0) for aid in pre_agent_ids}
         dones: Dict[Any, bool] = {aid: aid not in post_agent_ids for aid in pre_agent_ids}
@@ -180,7 +244,15 @@ class EcosystemCore:
             "births_this_tick": self.births_this_tick,
             "deaths_this_tick": self.deaths_this_tick,
             "agent_species": self.get_agent_species_map(),
+            "death_reasons": dict(self._death_reasons_this_tick),
         }
+        if self.api_version == "v2":
+            info["reward_breakdown_totals"] = dict(self._reward_breakdown_totals)
+            info["agent_diet_bucket"] = self.get_agent_diet_bucket_map()
+            if self.reward_config.include_agent_breakdown:
+                info["reward_breakdown_by_agent"] = {
+                    aid: dict(parts) for aid, parts in self._step_reward_breakdown.items()
+                }
         return self._compose_observation(), rewards, dones, info
 
     def render(self) -> Dict[str, Any]:
@@ -207,6 +279,20 @@ class EcosystemCore:
             if not organism.alive or not isinstance(organism, Animal):
                 continue
             mapping[organism.agent_id] = type(organism).__name__
+        return mapping
+
+    def get_agent_diet_bucket_map(self) -> Dict[int, str]:
+        mapping: Dict[int, str] = {}
+        for organism in self.organisms:
+            if not organism.alive or not isinstance(organism, Animal):
+                continue
+            if organism.genome.diet < 0.33:
+                bucket = "herbivore_like"
+            elif organism.genome.diet < 0.66:
+                bucket = "omnivore_like"
+            else:
+                bucket = "carnivore_like"
+            mapping[organism.agent_id] = bucket
         return mapping
 
     def save_checkpoint(self, path: str, metadata: Optional[Dict[str, Any]] = None) -> None:
@@ -285,9 +371,19 @@ class EcosystemCore:
     def _assign_agent_id(self, organism: Organism) -> None:
         organism.agent_id = self._next_agent_id
         self._next_agent_id += 1
+        if isinstance(organism, Animal) and organism.lineage_id is None:
+            organism.lineage_id = organism.agent_id
 
-    def _reward(self, organism: Animal, amount: float) -> None:
-        self._step_rewards[organism.agent_id] = self._step_rewards.get(organism.agent_id, 0.0) + amount
+    def _reward(self, organism: Animal, amount: float, component: str = "event") -> None:
+        self._reward_by_id(organism.agent_id, amount, component)
+
+    def _reward_by_id(self, agent_id: int, amount: float, component: str) -> None:
+        if amount == 0.0:
+            return
+        self._step_rewards[agent_id] = self._step_rewards.get(agent_id, 0.0) + amount
+        per_agent = self._step_reward_breakdown.setdefault(agent_id, {})
+        per_agent[component] = per_agent.get(component, 0.0) + amount
+        self._reward_breakdown_totals[component] = self._reward_breakdown_totals.get(component, 0.0) + amount
 
     def _normalize_energy(self, animal: Animal) -> float:
         normalized = animal.energy / (
@@ -296,11 +392,18 @@ class EcosystemCore:
         )
         return min(1.0, max(0.0, normalized))
 
-    def _add_death_penalty(self, animal: Animal) -> None:
-        self._step_rewards[animal.agent_id] = (
-            self._step_rewards.get(animal.agent_id, 0.0)
-            + self.reward_config.death_penalty
-        )
+    def _death_penalty_for_reason(self, reason: str) -> float:
+        if reason == "starvation" and self.reward_config.death_penalty_starvation is not None:
+            return self.reward_config.death_penalty_starvation
+        if reason == "predation" and self.reward_config.death_penalty_predation is not None:
+            return self.reward_config.death_penalty_predation
+        if reason == "old_age" and self.reward_config.death_penalty_old_age is not None:
+            return self.reward_config.death_penalty_old_age
+        return self.reward_config.death_penalty
+
+    def _add_death_penalty(self, animal: Animal, reason: str) -> None:
+        penalty = self._death_penalty_for_reason(reason)
+        self._reward(animal, penalty, component=f"death_{reason}")
 
     def _action_failure_probability(self, animal: Animal) -> float:
         age_ratio = 1.0 if animal.max_age <= 0 else animal.age / animal.max_age
@@ -318,14 +421,14 @@ class EcosystemCore:
             return
 
         if random.random() < self._action_failure_probability(animal):
-            self._reward(animal, self.reward_config.move_cost)
+            self._reward(animal, self.reward_config.move_cost, component="move_cost")
             return
 
         if action == self.ACTION_REPRODUCE:
             if animal.try_reproduce(self):
-                self._reward(animal, self.reward_config.reproduce_success)
+                self._reward(animal, self.reward_config.reproduce_success, component="reproduce_success")
             else:
-                self._reward(animal, self.reward_config.failed_reproduce)
+                self._reward(animal, self.reward_config.failed_reproduce, component="failed_reproduce")
             return
 
         dx, dy = 0, 0
@@ -344,43 +447,60 @@ class EcosystemCore:
 
     def _attempt_move_or_feed(self, animal: Animal, target_x: int, target_y: int) -> None:
         if not (0 <= target_x < self.grid_size and 0 <= target_y < self.grid_size):
-            self._reward(animal, self.reward_config.invalid_collision)
+            self._reward(animal, self.reward_config.invalid_collision, component="invalid_collision")
             return
 
         if not self.can_move_to_terrain(target_x, target_y):
-            self._reward(animal, self.reward_config.invalid_collision)
+            self._reward(animal, self.reward_config.invalid_collision, component="invalid_collision")
             return
 
         occupant = self.get_organism_at(target_x, target_y)
 
-        if isinstance(animal, Herbivore) and isinstance(occupant, Plant):
-            self.queue_remove_organism(occupant)
-            # Faster herbivores burn more baseline energy, so feeding conversion
-            # is intentionally slightly lower to preserve a speed-vs-efficiency
-            # trade-off in policy learning (balance design).
-            animal.energy += config.get("HERBIVORE_ENERGY_GAIN") / max(
-                self.MIN_SPEED_NORMALIZER,
-                animal.genome.speed,
-            )
-            self.move_organism(animal, target_x, target_y)
-            self._reward(animal, self.reward_config.eat_success)
-            return
+        if self.api_version == "v2":
+            if animal.is_herbivore_trait() and isinstance(occupant, Plant):
+                self.queue_remove_organism(occupant, reason="consumed")
+                animal.energy += config.get("HERBIVORE_ENERGY_GAIN") / max(
+                    self.MIN_SPEED_NORMALIZER,
+                    animal.genome.speed,
+                )
+                self.move_organism(animal, target_x, target_y)
+                self._reward(animal, self.reward_config.eat_success, component="eat_success")
+                return
+            if animal.is_carnivore_trait() and isinstance(occupant, Animal) and occupant is not animal:
+                self.queue_remove_organism(occupant, reason="predation")
+                animal.energy += config.get("CARNIVORE_ENERGY_GAIN") * (1.0 + occupant.genome.size)
+                self.move_organism(animal, target_x, target_y)
+                self._reward(animal, self.reward_config.eat_success, component="eat_success")
+                return
+        else:
+            if isinstance(animal, Herbivore) and isinstance(occupant, Plant):
+                self.queue_remove_organism(occupant, reason="consumed")
+                # Faster herbivores burn more baseline energy, so feeding conversion
+                # is intentionally slightly lower to preserve a speed-vs-efficiency
+                # trade-off in policy learning (balance design).
+                animal.energy += config.get("HERBIVORE_ENERGY_GAIN") / max(
+                    self.MIN_SPEED_NORMALIZER,
+                    animal.genome.speed,
+                )
+                self.move_organism(animal, target_x, target_y)
+                self._reward(animal, self.reward_config.eat_success, component="eat_success")
+                return
 
-        if isinstance(animal, Carnivore) and isinstance(occupant, Herbivore):
-            self.queue_remove_organism(occupant)
-            animal.energy += config.get("CARNIVORE_ENERGY_GAIN") * (1.0 + occupant.genome.size)
-            self.move_organism(animal, target_x, target_y)
-            self._reward(animal, self.reward_config.eat_success)
-            return
+            if isinstance(animal, Carnivore) and isinstance(occupant, Herbivore):
+                self.queue_remove_organism(occupant, reason="predation")
+                animal.energy += config.get("CARNIVORE_ENERGY_GAIN") * (1.0 + occupant.genome.size)
+                self.move_organism(animal, target_x, target_y)
+                self._reward(animal, self.reward_config.eat_success, component="eat_success")
+                return
 
         if occupant is not None:
-            self._reward(animal, self.reward_config.invalid_collision)
+            self._reward(animal, self.reward_config.invalid_collision, component="invalid_collision")
             return
 
         if animal.move_to(self, target_x, target_y):
-            self._reward(animal, self.reward_config.move_cost)
+            self._reward(animal, self.reward_config.move_cost, component="move_cost")
         else:
-            self._reward(animal, self.reward_config.invalid_collision)
+            self._reward(animal, self.reward_config.invalid_collision, component="invalid_collision")
 
     def _finalize_tick(self) -> None:
         self.deaths_this_tick = len(self._pending_removals)
@@ -420,10 +540,13 @@ class EcosystemCore:
     # ── Observation construction (POMDP) ──────────────────────────────────────
 
     def _compose_observation(self) -> Dict[str, Any]:
-        return {
+        payload = {
             "global": self.get_global_observation(),
             "agents": self.get_all_agent_observations(),
         }
+        if self.api_version == "v2":
+            payload["api_version"] = "v2"
+        return payload
 
     def get_global_observation(self) -> Dict[str, Any]:
         terrain = [
@@ -447,17 +570,21 @@ class EcosystemCore:
             "stats": self.get_display_data(),
         }
 
-    def get_all_agent_observations(self) -> Dict[int, ObservationTensor]:
-        observations: Dict[int, ObservationTensor] = {}
+    def get_all_agent_observations(self) -> Dict[int, Any]:
+        observations: Dict[int, Any] = {}
         for organism in self.organisms:
             if not organism.alive or not isinstance(organism, Animal):
                 continue
             observations[organism.agent_id] = self.get_agent_observation(organism)
         return observations
 
-    def get_agent_observation(self, animal: Animal) -> ObservationTensor:
+    def get_agent_observation(self, animal: Animal) -> Any:
+        if self.api_version == "v2":
+            return self._get_agent_observation_v2(animal)
+        return self._get_agent_observation_v1(animal)
+
+    def _get_agent_observation_v1(self, animal: Animal) -> ObservationTensor:
         radius = self.observation_radius
-        size = radius * 2 + 1
 
         energy_norm = self._normalize_energy(animal)
         age_norm = (
@@ -491,10 +618,141 @@ class EcosystemCore:
         self._apply_growth_limiter_mask(tensor, age_norm)
         return tensor
 
+    def _get_agent_observation_v2(self, animal: Animal) -> Dict[str, Any]:
+        radius = self.observation_radius
+        energy_norm = self._normalize_energy(animal)
+        age_norm = (
+            1.0
+            if animal.max_age <= 0
+            else min(1.0, max(0.0, animal.age / animal.max_age))
+        )
+
+        tensor: ObservationTensor = []
+        for dy in range(-radius, radius + 1):
+            row: List[List[float]] = []
+            for dx in range(-radius, radius + 1):
+                x, y = animal.x + dx, animal.y + dy
+                obstacle = 1.0
+                prey = 0.0
+                ally = 0.0
+                kinship = 0.0
+
+                if 0 <= x < self.grid_size and 0 <= y < self.grid_size:
+                    obstacle = 0.0 if self.can_move_to_terrain(x, y) else 1.0
+                    occupant = self.get_organism_at(x, y)
+                    if animal.is_herbivore_trait():
+                        prey = 1.0 if isinstance(occupant, Plant) else 0.0
+                    else:
+                        prey = 1.0 if isinstance(occupant, Animal) and occupant is not animal else 0.0
+                    ally = (
+                        1.0
+                        if isinstance(occupant, Animal)
+                        and occupant is not animal
+                        and occupant.is_herbivore_trait() == animal.is_herbivore_trait()
+                        else 0.0
+                    )
+                    kinship = self._kinship_value(animal, occupant)
+
+                row.append([obstacle, prey, ally, energy_norm, age_norm, kinship])
+            tensor.append(row)
+
+        self._apply_growth_limiter_mask(tensor, age_norm)
+        scalar_state = self._compute_scalar_state(animal, energy_norm, age_norm)
+        return {
+            "local_tensor": tensor,
+            "scalar_state": scalar_state,
+            "scalar_labels": [
+                "energy_norm",
+                "age_norm",
+                "hunger_drive",
+                "reproduction_urge",
+                "fear_drive",
+            ],
+        }
+
+    def _kinship_value(self, self_animal: Animal, occupant: Optional[Organism]) -> float:
+        if occupant is None:
+            return 0.0
+        if not isinstance(occupant, Animal):
+            return 0.0
+        if occupant is self_animal:
+            return 1.0
+        if (
+            (self_animal.parent_id is not None and occupant.agent_id == self_animal.parent_id)
+            or (occupant.parent_id is not None and self_animal.agent_id == occupant.parent_id)
+        ):
+            return 1.0
+        if (
+            self_animal.lineage_id is not None
+            and occupant.lineage_id is not None
+            and self_animal.lineage_id == occupant.lineage_id
+        ):
+            return 0.5
+        return 0.0
+
+    def _max_energy_from_trait(self, animal: Animal) -> float:
+        max_energy_factor = animal.trait_max_energy_factor()
+        return max(1.0, max_energy_factor * max(self.MIN_GENOME_SIZE_NORMALIZER, animal.genome.size))
+
+    def _compute_scalar_state(self, animal: Animal, energy_norm: float, age_norm: float) -> List[float]:
+        max_energy = self._max_energy_from_trait(animal)
+        energy_ratio = min(1.0, max(0.0, animal.energy / max_energy))
+        hunger_drive = 1.0 - energy_ratio
+
+        adult_ratio = self.REPRODUCTION_MATURITY_AGE_RATIO
+        energy_threshold = self.REPRODUCTION_ENERGY_THRESHOLD
+        if age_norm < adult_ratio or energy_ratio < energy_threshold:
+            reproduction_urge = 0.0
+        else:
+            age_factor = min(1.0, (age_norm - adult_ratio) / (1.0 - adult_ratio))
+            energy_factor = min(1.0, (energy_ratio - energy_threshold) / (1.0 - energy_threshold))
+            energy_term = energy_factor * energy_factor
+            age_term = age_factor ** self.REPRODUCTION_AGE_EXPONENT
+            reproduction_urge = min(1.0, energy_term * age_term)
+
+        predator_density = self._predator_density(animal)
+        low_energy_risk = 1.0 - energy_ratio
+        fear_drive = min(1.0, max(predator_density, low_energy_risk))
+
+        return [energy_norm, age_norm, hunger_drive, reproduction_urge, fear_drive]
+
+    def _predator_density(self, animal: Animal) -> float:
+        radius = self.observation_radius
+        seen = 0
+        predator = 0
+        for dy in range(-radius, radius + 1):
+            for dx in range(-radius, radius + 1):
+                if dx == 0 and dy == 0:
+                    continue
+                x, y = animal.x + dx, animal.y + dy
+                if not (0 <= x < self.grid_size and 0 <= y < self.grid_size):
+                    continue
+                occupant = self.get_organism_at(x, y)
+                if not isinstance(occupant, Animal):
+                    continue
+                seen += 1
+                if occupant.is_carnivore_trait():
+                    if animal.is_herbivore_trait():
+                        predator += 1
+                    elif occupant.genome.size > animal.genome.size * self.PREDATOR_SIZE_THRESHOLD:
+                        predator += 1
+        if seen <= 0:
+            return 0.0
+        return min(1.0, predator / seen)
+
     def _apply_growth_limiter_mask(self, tensor: ObservationTensor, age_norm: float) -> None:
         if age_norm >= self.VISION_MASK_AGE_RATIO:
             return
-        zero_obs = [0.0] * 5
+        channel_count = (
+            len(tensor[0][0])
+            if tensor and tensor[0]
+            else (
+                self.V1_OBSERVATION_CHANNELS
+                if self.api_version == "v1"
+                else self.V2_OBSERVATION_CHANNELS
+            )
+        )
+        zero_obs = [0.0] * channel_count
         edge = 0
         size = len(tensor)
         last = size - 1
@@ -557,7 +815,7 @@ class EcosystemCore:
         organism.alive = False
         self._pending_additions.append(organism)
 
-    def queue_remove_organism(self, organism: Organism) -> None:
+    def queue_remove_organism(self, organism: Organism, reason: str = "generic") -> None:
         if not organism.alive:
             return
         organism.alive = False
@@ -565,7 +823,8 @@ class EcosystemCore:
         self._pending_removals.append(organism)
 
         if isinstance(organism, Animal):
-            self._add_death_penalty(organism)
+            self._death_reasons_this_tick[reason] = self._death_reasons_this_tick.get(reason, 0) + 1
+            self._add_death_penalty(organism, reason)
 
     def get_terrain(self, x: int, y: int) -> TerrainType:
         return self.terrain_grid.get((x, y), TerrainType.DIRT)

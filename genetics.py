@@ -19,6 +19,7 @@ class Genome:
     speed: float       # Move speed (0.5–3.0): movement, escape velocity
     vision: int        # Sight radius (1–10): grid cells the organism can sense
     metabolism: float  # Metabolic rate (0.5–2.0): base energy consumption
+    diet: float        # Diet gene (0.0–1.0): <0.5 herbivore-like, >=0.5 carnivore-like
 
     # ── Class-level constant (NOT a dataclass field) ──────────────────────────
     _BOUNDS: ClassVar[Dict[str, Tuple[float, float]]] = {
@@ -26,6 +27,7 @@ class Genome:
         "speed":      (0.5, 3.0),
         "vision":     (1.0, 10.0),
         "metabolism": (0.5, 2.0),
+        "diet":       (0.0, 1.0),
     }
 
     # ── Evolutionary operators ─────────────────────────────────────────────────
@@ -52,6 +54,7 @@ class Genome:
             speed=_apply(self.speed, *b["speed"]),
             vision=int(_apply(float(self.vision), *b["vision"])),
             metabolism=_apply(self.metabolism, *b["metabolism"]),
+            diet=_apply(self.diet, *b["diet"]),
         )
 
     def crossover(self, other: Genome, mutation_rate: float = 0.05) -> Genome:
@@ -72,6 +75,7 @@ class Genome:
             speed=random.choice([self.speed, other.speed]),
             vision=random.choice([self.vision, other.vision]),
             metabolism=random.choice([self.metabolism, other.metabolism]),
+            diet=random.choice([self.diet, other.diet]),
         ).mutate(mutation_rate)
 
     # ── Visualisation helpers ─────────────────────────────────────────────────
@@ -105,5 +109,6 @@ class Genome:
     def __repr__(self) -> str:
         return (
             f"Genome(size={self.size:.2f}, speed={self.speed:.2f}, "
-            f"vision={self.vision}, metabolism={self.metabolism:.2f})"
+            f"vision={self.vision}, metabolism={self.metabolism:.2f}, "
+            f"diet={self.diet:.2f})"
         )

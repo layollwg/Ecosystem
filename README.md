@@ -42,7 +42,7 @@ python3 main.py --mode ui
 ### 2）启动无界面课程训练
 
 ```bash
-python3 main.py --mode headless --preset stable --grid-size 25 --episodes 10 --ticks 300
+python3 main.py --mode headless --api-version v1 --preset stable --grid-size 25 --episodes 10 --ticks 300
 ```
 
 检查点默认输出到：
@@ -60,6 +60,7 @@ python3 main.py --mode headless --preset stable --grid-size 25 --episodes 10 --t
 ### 无界面模式参数
 
 - `--preset {stable,balanced,intense}`：预设参数组
+- `--api-version {v1,v2}`：环境接口版本（默认 v1；v2 启用奖励塑形/性状观测增强）
 - `--grid-size`：网格大小（边长）
 - `--ticks`：每回合最大 Tick 数
 - `--episodes`：训练回合数
@@ -68,6 +69,24 @@ python3 main.py --mode headless --preset stable --grid-size 25 --episodes 10 --t
 - `--log-interval`：日志输出间隔
 - `--checkpoint-every`：每多少回合保存一次检查点（0 表示不保存）
 - `--checkpoint-dir`：检查点输出目录
+- `--living-penalty`：每 Tick 生存惩罚（可覆盖 v2 默认）
+- `--energy-delta-scale`：正向能量变化奖励系数（可覆盖 v2 默认）
+- `--reproduction-reward`：繁殖成功奖励（可覆盖 v2 默认）
+- `--collision-penalty`：碰撞惩罚（可覆盖 v2 默认）
+- `--death-penalty-starvation` / `--death-penalty-predation` / `--death-penalty-old-age`：按死亡原因设置惩罚
+- `--reward-breakdown-agents`：在 info 中输出按 agent 的奖励分解明细（默认仅输出总分解）
+
+## v1 / v2 兼容说明
+
+- `v1`（默认）：
+  - 保持原有观测结构：`obs["agents"][agent_id]` 为局部张量。
+  - 保持原有奖励行为与字段，适配现有训练脚本。
+- `v2`：
+  - 引入奖励塑形：生存惩罚、energy delta 奖励、按死亡原因惩罚、奖励分解日志。
+  - 引入性状驱动：新增 `diet` 基因（`<0.5` 偏植食，`>=0.5` 偏肉食）。
+  - 引入亲缘识别：局部观测新增 kinship 通道。
+  - 引入内部驱动：`scalar_state = [energy_norm, age_norm, hunger_drive, reproduction_urge, fear_drive]`。
+  - 观测窗口大小由 `--observation-radius` 决定：`(2r+1) x (2r+1)`（例如 `r=5` 对应 `11x11`）。
 
 ## 图形界面怎么使用
 
