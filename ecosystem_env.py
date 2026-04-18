@@ -32,6 +32,8 @@ class EcosystemEnv(ParallelEnv):
     REPRODUCE_FRACTION = 0.8
     MUTATION_RATE = 0.05
     PARENT_POST_REPRODUCE_ENERGY_RATIO = 0.6
+    # Require agents to reach an adult phase before reproduction to avoid
+    # unstable juvenile explosion in early ticks.
     REPRODUCTION_MATURITY_AGE_RATIO = 0.2
     SPECIES_RABBIT = "rabbit"
     SPECIES_FOX = "fox"

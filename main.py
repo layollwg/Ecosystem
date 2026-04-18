@@ -14,15 +14,18 @@ def _build_base_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _is_headless_mode(argv: list[str]) -> bool:
+    if "--mode=headless" in argv:
+        return True
+    if "--mode" not in argv:
+        return False
+    idx = argv.index("--mode")
+    return idx + 1 < len(argv) and argv[idx + 1] == "headless"
+
+
 def main() -> None:
     argv = sys.argv[1:]
-    mode_is_headless = "--mode=headless" in argv
-    if "--mode" in argv:
-        idx = argv.index("--mode")
-        if idx + 1 < len(argv) and argv[idx + 1] == "headless":
-            mode_is_headless = True
-
-    if mode_is_headless:
+    if _is_headless_mode(argv):
         from headless_training import add_headless_args, run_curriculum
 
         parser = _build_base_parser()

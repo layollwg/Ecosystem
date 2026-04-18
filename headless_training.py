@@ -32,6 +32,8 @@ _PRESET_LABELS = {
     "balanced": "均衡",
     "intense": "激烈",
 }
+# Match the historical UI balance heuristic: a one-species world is degraded
+# but not treated as a hard-zero ecosystem state.
 SINGLE_SPECIES_BALANCE_SCORE = 15.0
 
 

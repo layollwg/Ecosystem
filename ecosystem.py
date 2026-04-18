@@ -10,6 +10,9 @@ from organisms import Animal, Carnivore, Herbivore, Plant
 from terrain import TerrainType
 
 Position = Tuple[int, int]
+SPECIES_POOL_MULTIPLIER = 10
+MAX_RABBIT_POOL_CAP = 500
+MAX_FOX_POOL_CAP = 200
 
 
 class Ecosystem:
@@ -47,8 +50,10 @@ class Ecosystem:
         self._last_tick_ms = 0.0
 
         capacity = max(1, grid_size * grid_size)
-        max_rabbits = max(num_herbivores * 10, min(capacity, 500))
-        max_foxes = max(num_carnivores * 10, min(capacity, 200))
+        # Over-provision species pools for births during UI runs while keeping
+        # a hard upper bound tied to map capacity.
+        max_rabbits = max(num_herbivores * SPECIES_POOL_MULTIPLIER, min(capacity, MAX_RABBIT_POOL_CAP))
+        max_foxes = max(num_carnivores * SPECIES_POOL_MULTIPLIER, min(capacity, MAX_FOX_POOL_CAP))
         self._env = EcosystemEnv(
             grid_size=grid_size,
             max_rabbits=max_rabbits,
