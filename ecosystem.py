@@ -52,8 +52,10 @@ class Ecosystem:
         capacity = max(1, grid_size * grid_size)
         # Over-provision species pools for births during UI runs while keeping
         # a hard upper bound tied to map capacity.
-        max_rabbits = max(num_herbivores * SPECIES_POOL_MULTIPLIER, min(capacity, MAX_RABBIT_POOL_CAP))
-        max_foxes = max(num_carnivores * SPECIES_POOL_MULTIPLIER, min(capacity, MAX_FOX_POOL_CAP))
+        rabbit_capacity_cap = min(capacity, MAX_RABBIT_POOL_CAP)
+        fox_capacity_cap = min(capacity, MAX_FOX_POOL_CAP)
+        max_rabbits = max(num_herbivores * SPECIES_POOL_MULTIPLIER, rabbit_capacity_cap)
+        max_foxes = max(num_carnivores * SPECIES_POOL_MULTIPLIER, fox_capacity_cap)
         self._env = EcosystemEnv(
             grid_size=grid_size,
             max_rabbits=max_rabbits,

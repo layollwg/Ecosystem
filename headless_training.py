@@ -80,7 +80,7 @@ def _env_creator(env_config: Dict[str, int]) -> ParallelPettingZooEnv:
     return ParallelPettingZooEnv(env)
 
 
-def _build_rllib_config(env_name: str, args: argparse.Namespace):
+def _build_rllib_config(env_name: str, args: argparse.Namespace) -> PPOConfig:
     sample_env = EcosystemEnv(
         grid_size=args.grid_size,
         initial_rabbits=1,
