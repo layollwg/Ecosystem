@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import sys
 
-from headless_training import add_headless_args, run_curriculum
-
-
-def _build_parser() -> argparse.ArgumentParser:
+def _build_base_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="生态系统模拟器")
     parser.add_argument(
         "--mode",
@@ -13,14 +11,26 @@ def _build_parser() -> argparse.ArgumentParser:
         default="ui",
         help="使用 Tkinter 图形界面运行，或以无界面课程训练模式运行",
     )
-    add_headless_args(parser)
     return parser
 
 
-def main() -> None:
-    args = _build_parser().parse_args()
+def _is_headless_mode(argv: list[str]) -> bool:
+    if "--mode=headless" in argv:
+        return True
+    if "--mode" not in argv:
+        return False
+    idx = argv.index("--mode")
+    return idx + 1 < len(argv) and argv[idx + 1] == "headless"
 
-    if args.mode == "headless":
+
+def main() -> None:
+    argv = sys.argv[1:]
+    if _is_headless_mode(argv):
+        from headless_training import add_headless_args, run_curriculum
+
+        parser = _build_base_parser()
+        add_headless_args(parser)
+        args = parser.parse_args()
         run_curriculum(args)
         return
 

@@ -23,7 +23,12 @@
 ## 运行环境
 
 - Python 3.10 及以上
-- 依赖均为标准库（Tkinter、argparse 等），通常无需额外安装包
+- UI 模式：标准库（Tkinter、argparse 等）
+- Headless 训练模式：Ray RLlib + PettingZoo + Gymnasium
+
+```bash
+pip install "ray[rllib]==2.55.0" pettingzoo==1.25.0 gymnasium==1.2.3
+```
 
 ## 快速开始
 
@@ -39,10 +44,10 @@ python3 main.py
 python3 main.py --mode ui
 ```
 
-### 2）启动无界面课程训练
+### 2）启动无界面课程训练（Ray RLlib）
 
 ```bash
-python3 main.py --mode headless --api-version v1 --preset stable --grid-size 25 --episodes 10 --ticks 300
+python3 main.py --mode headless --preset stable --grid-size 25 --episodes 10 --ticks 300
 ```
 
 检查点默认输出到：
@@ -57,36 +62,46 @@ python3 main.py --mode headless --api-version v1 --preset stable --grid-size 25 
 
 - `--mode {ui,headless}`：运行模式（图形界面 / 无界面训练）
 
-### 无界面模式参数
+### 无界面模式参数（RLlib）
 
 - `--preset {stable,balanced,intense}`：预设参数组
-- `--api-version {v1,v2}`：环境接口版本（默认 v1；v2 启用奖励塑形/性状观测增强）
 - `--grid-size`：网格大小（边长）
-- `--ticks`：每回合最大 Tick 数
-- `--episodes`：训练回合数
+- `--ticks`：每轮最大环境步数
+- `--episodes`：训练轮数（每轮调用一次 PPO train）
 - `--seed`：随机种子
-- `--observation-radius`：观察半径
 - `--log-interval`：日志输出间隔
 - `--checkpoint-every`：每多少回合保存一次检查点（0 表示不保存）
 - `--checkpoint-dir`：检查点输出目录
-- `--living-penalty`：每 Tick 生存惩罚（可覆盖 v2 默认）
-- `--energy-delta-scale`：正向能量变化奖励系数（可覆盖 v2 默认）
-- `--reproduction-reward`：繁殖成功奖励（可覆盖 v2 默认）
-- `--collision-penalty`：碰撞惩罚（可覆盖 v2 默认）
-- `--death-penalty-starvation` / `--death-penalty-predation` / `--death-penalty-old-age`：按死亡原因设置惩罚
-- `--reward-breakdown-agents`：在 info 中输出按 agent 的奖励分解明细（默认仅输出总分解）
+- `--framework`：RLlib 框架（当前为 torch）
+- `--num-env-runners` / `--num-gpus`：RLlib 运行资源
+- `--train-batch-size` / `--learning-rate` / `--gamma`：PPO 训练超参
+- `--validate-statistics`：运行新旧引擎统计一致性验证（不训练）
+- `--alignment-runs`：统计一致性验证重复次数
 
-## v1 / v2 兼容说明
+## 多智能体训练与 Action Mask
 
-- `v1`（默认）：
-  - 保持原有观测结构：`obs["agents"][agent_id]` 为局部张量。
-  - 保持原有奖励行为与字段，适配现有训练脚本。
-- `v2`：
-  - 引入奖励塑形：生存惩罚、energy delta 奖励、按死亡原因惩罚、奖励分解日志。
-  - 引入性状驱动：新增 `diet` 基因（`<0.5` 偏植食，`>=0.5` 偏肉食）。
-  - 引入亲缘识别：局部观测新增 kinship 通道。
-  - 引入内部驱动：`scalar_state = [energy_norm, age_norm, hunger_drive, reproduction_urge, fear_drive]`。
-  - 观测窗口大小由 `--observation-radius` 决定：`(2r+1) x (2r+1)`（例如 `r=5` 对应 `11x11`）。
+- Headless 训练使用 `ecosystem_env.py` 的 PettingZoo `ParallelEnv`。
+- 通过 RLlib 多策略映射实现参数共享：
+  - 所有 `rabbit_*` 共享 `rabbit_policy`
+  - 所有 `fox_*` 共享 `fox_policy`
+- 观测包含：
+  - `grid`: `(4, 11, 11)`
+  - `state`: `(3,)`
+  - `action_mask`: `(6,)`，语义为 `1=合法, 0=非法`
+- `action_mask` 屏蔽项包括：
+  - 越界移动
+  - 不可通行地形移动
+  - 繁殖非法（未成年、能量不足、无可出生邻格、物种池已满）
+
+## 新旧引擎对齐标准（统计一致）
+
+- 不要求同 seed 下的轨迹级一致。
+- 通过 `--validate-statistics` 运行统计对齐实验，输出：
+  - 最终种群规模
+  - 种群均值
+  - 平均平衡度
+  - 平均年龄
+- 报告输出到：`checkpoints/statistical_alignment_report.json`
 
 ## 图形界面怎么使用
 
@@ -120,13 +135,14 @@ python3 main.py --mode headless --api-version v1 --preset stable --grid-size 25 
 
 - `main.py`：程序入口与命令行参数解析
 - `game_ui.py`：应用主流程（配置页 → 模拟页 → 结果页）
-- `ecosystem_core.py`：无 Tk 依赖的核心环境逻辑（reset/step/render）
-- `ecosystem.py`：兼容适配层
+- `ecosystem_env.py`：PettingZoo ParallelEnv（当前唯一物理规则源）
+- `ecosystem.py`：UI 兼容壳（适配到 `EcosystemEnv`）
+- `ecosystem_core.py`：旧版核心（已标记为过渡期兼容，后续退役）
 - `organisms.py`：生物行为（移动、觅食、繁殖、能量）
 - `genetics.py`：基因参数与变异逻辑
 - `terrain.py`：地形类型与地形生成
 - `config.py`：季节系统与预设参数
-- `headless_training.py`：无界面课程训练与检查点保存
+- `headless_training.py`：RLlib 课程训练与统计一致性验证
 - `ui_config_panel.py`：配置面板
 - `ui_simulation_panel.py`：仿真面板
 - `ui_result_panel.py`：结果面板
