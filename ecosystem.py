@@ -184,8 +184,11 @@ class Ecosystem:
             obs = self._last_obs.get(env_agent_id)
             if obs is None:
                 continue
+            species = self._env._species_of(env_agent_id)
+            policy_id = "rabbit_policy" if species == self._env.SPECIES_RABBIT else "fox_policy"
             batch[public_id] = {
-                "species": self._env.SPECIES_RABBIT if env_agent_id.startswith("rabbit_") else self._env.SPECIES_FOX,
+                "species": species,
+                "policy_id": policy_id,
                 "observation": obs,
             }
         return batch

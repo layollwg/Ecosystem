@@ -304,8 +304,7 @@ class GameUI:
         action_dict: Dict[int, int] = {}
         try:
             for public_agent_id, payload in inference_batch.items():
-                species = payload["species"]
-                policy_id = "rabbit_policy" if species == "rabbit" else "fox_policy"
+                policy_id = payload["policy_id"]
                 obs = payload["observation"]
                 action = self._algo.compute_single_action(obs, policy_id=policy_id, explore=False)
                 if isinstance(action, tuple):
