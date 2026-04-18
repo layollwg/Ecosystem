@@ -174,6 +174,22 @@ class Ecosystem:
             "grid_size": self.grid_size,
         }
 
+    def get_inference_batch(self) -> Dict[int, Dict[str, Any]]:
+        """Return current alive-agent observations keyed by UI public agent id."""
+        batch: Dict[int, Dict[str, Any]] = {}
+        for env_agent_id in self._env.agents:
+            public_id = self._agent_public_ids.get(env_agent_id)
+            if public_id is None:
+                continue
+            obs = self._last_obs.get(env_agent_id)
+            if obs is None:
+                continue
+            batch[public_id] = {
+                "species": self._env.SPECIES_RABBIT if env_agent_id.startswith("rabbit_") else self._env.SPECIES_FOX,
+                "observation": obs,
+            }
+        return batch
+
     def _build_env_actions(self, action_dict: Optional[Dict[int, int]]) -> Dict[str, int]:
         if not action_dict:
             return self._sample_autonomous_actions()

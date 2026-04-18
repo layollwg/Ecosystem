@@ -44,6 +44,12 @@ python3 main.py
 python3 main.py --mode ui
 ```
 
+加载 RLlib 训练检查点进行 UI 推理回放：
+
+```bash
+python3 main.py --mode ui --load-checkpoint /absolute/path/to/checkpoint
+```
+
 ### 2）启动无界面课程训练（Ray RLlib）
 
 ```bash
