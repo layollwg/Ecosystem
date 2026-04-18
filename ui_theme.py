@@ -19,6 +19,10 @@ NATURE_LIGHT: Dict[str, str] = {
     "grid_bg":         "#FDFBF7",   # warm white grid background
     "grid_line":       "#ECFDF5",   # barely-visible pale-green grid lines
     "empty_fill":      "#FDFBF7",   # same as grid_bg — empty cells
+    "terrain_water":   "#93C5FD",
+    "terrain_sand":    "#F5DEB3",
+    "terrain_dirt":    "#D9F99D",
+    "terrain_mountain":"#9CA3AF",
     # Organisms
     "plant_fill":      "#DCFCE7",   # pale spring-green plant cells
     "herbivore_fill":  "#FEF3C7",   # pale amber herbivore cells
@@ -69,6 +73,10 @@ LIGHT: Dict[str, str] = {
     "grid_bg":         "#fafafa",
     "grid_line":       "#dde1e7",
     "empty_fill":      "#f5f5f5",
+    "terrain_water":   "#90caf9",
+    "terrain_sand":    "#ffe0b2",
+    "terrain_dirt":    "#c5e1a5",
+    "terrain_mountain":"#9e9e9e",
     # Organisms
     "plant_fill":      "#c8e6c9",
     "herbivore_fill":  "#fff9c4",
@@ -119,6 +127,10 @@ DARK: Dict[str, str] = {
     "grid_bg":         "#16213e",
     "grid_line":       "#0f3460",
     "empty_fill":      "#1e2d4d",
+    "terrain_water":   "#1d4ed8",
+    "terrain_sand":    "#8b6d3a",
+    "terrain_dirt":    "#355e3b",
+    "terrain_mountain":"#4b5563",
     # Organisms
     "plant_fill":      "#1a4a2e",
     "herbivore_fill":  "#4a3210",

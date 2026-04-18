@@ -11,6 +11,7 @@ from ui_widgets import TooltipManager
 from ui_overlay import DrawerPanel, PlaybackOverlay, StatsOverlay
 from camera_system import CameraSystem
 from organisms import Carnivore, Herbivore, Plant
+from terrain import TerrainType
 
 
 class SimulationPanel(tk.Frame):
@@ -74,7 +75,7 @@ class SimulationPanel(tk.Frame):
 
     def update_display(self, data: Dict[str, Any]) -> None:
         """Redraw all UI elements with the latest simulation data."""
-        self._update_grid()
+        self._update_entities_only()
         try:
             self._stats_overlay.update(data)
             self._drawer.update_data(data)
@@ -174,7 +175,7 @@ class SimulationPanel(tk.Frame):
         if not self._camera_initialized:
             self._camera.reset_view(ui_padding_x=self._stats_padding())
             self._camera_initialized = True
-        self._update_grid()
+        self._redraw_full_scene()
 
     def _stats_padding(self) -> int:
         """Return the horizontal pixel width to reserve for the stats overlay."""
@@ -187,15 +188,15 @@ class SimulationPanel(tk.Frame):
         # Windows / macOS: event.delta > 0 means scroll up => zoom in
         factor = 1.1 if event.delta > 0 else (1.0 / 1.1)
         self._camera.zoom_at(factor, event.x, event.y)
-        self._update_grid()
+        self._redraw_full_scene()
 
     def _on_scroll_up(self, event: tk.Event) -> None:  # type: ignore[type-arg]
         self._camera.zoom_at(1.1, event.x, event.y)
-        self._update_grid()
+        self._redraw_full_scene()
 
     def _on_scroll_down(self, event: tk.Event) -> None:  # type: ignore[type-arg]
         self._camera.zoom_at(1.0 / 1.1, event.x, event.y)
-        self._update_grid()
+        self._redraw_full_scene()
 
     def _on_pan_start(self, event: tk.Event) -> None:  # type: ignore[type-arg]
         self._pan_start_x = event.x
@@ -207,19 +208,55 @@ class SimulationPanel(tk.Frame):
         self._camera.pan(dx, dy)
         self._pan_start_x = event.x
         self._pan_start_y = event.y
-        self._update_grid()
+        self._redraw_full_scene()
 
     def _on_reset_view(self, _event: tk.Event) -> None:  # type: ignore[type-arg]
         self._camera.reset_view(ui_padding_x=self._stats_padding())
-        self._update_grid()
+        self._redraw_full_scene()
 
     # ── Grid rendering ────────────────────────────────────────────────────────
 
-    def _update_grid(self) -> None:
+    def _iter_visible_cells(self):
         eco    = self._eco
+        camera = self._camera
+
+        cs = eco.cell_size
+        min_wx, min_wy, max_wx, max_wy = camera.get_visible_bounds()
+
+        min_cx = max(0, int(min_wx // cs))
+        min_cy = max(0, int(min_wy // cs))
+        max_cx = min(eco.grid_size - 1, int(max_wx // cs) + 1)
+        max_cy = min(eco.grid_size - 1, int(max_wy // cs) + 1)
+        for cy in range(min_cy, max_cy + 1):
+            for cx in range(min_cx, max_cx + 1):
+                wx1 = cx * cs
+                wy1 = cy * cs
+                sx1, sy1 = camera.world_to_screen(wx1,      wy1)
+                sx2, sy2 = camera.world_to_screen(wx1 + cs, wy1 + cs)
+                yield cx, cy, sx1, sy1, sx2, sy2
+
+    def _terrain_fill(self, terrain: TerrainType) -> str:
+        t = self._theme
+        if terrain == TerrainType.WATER:
+            return t["terrain_water"]
+        if terrain == TerrainType.SAND:
+            return t["terrain_sand"]
+        if terrain == TerrainType.MOUNTAIN:
+            return t["terrain_mountain"]
+        return t["terrain_dirt"]
+
+    def _terrain_name(self, terrain: TerrainType) -> str:
+        names = {
+            TerrainType.WATER: "Water",
+            TerrainType.SAND: "Sand",
+            TerrainType.DIRT: "Dirt",
+            TerrainType.MOUNTAIN: "Mountain",
+        }
+        return names.get(terrain, "Unknown")
+
+    def _redraw_full_scene(self) -> None:
         t      = self._theme
         canvas = self._grid_canvas
-        camera = self._camera
 
         canvas_w = canvas.winfo_width()
         canvas_h = canvas.winfo_height()
@@ -229,51 +266,54 @@ class SimulationPanel(tk.Frame):
         canvas.config(bg=t["grid_bg"])
         canvas.delete("all")
 
-        cs = eco.cell_size
-        min_wx, min_wy, max_wx, max_wy = camera.get_visible_bounds()
+        for cx, cy, sx1, sy1, sx2, sy2 in self._iter_visible_cells():
+            terrain = self._eco.get_terrain(cx, cy)
+            canvas.create_rectangle(
+                sx1, sy1, sx2, sy2,
+                fill=self._terrain_fill(terrain),
+                outline=t["grid_line"],
+                tags=("terrain",),
+            )
+        self._update_entities_only()
 
-        # Convert visible world-pixel bounds to grid-cell indices
-        min_cx = max(0, int(min_wx // cs))
-        min_cy = max(0, int(min_wy // cs))
-        max_cx = min(eco.grid_size - 1, int(max_wx // cs) + 1)
-        max_cy = min(eco.grid_size - 1, int(max_wy // cs) + 1)
+    def _update_entities_only(self) -> None:
+        eco = self._eco
+        t = self._theme
+        canvas = self._grid_canvas
+        canvas_w = canvas.winfo_width()
+        canvas_h = canvas.winfo_height()
+        if canvas_w <= 1 or canvas_h <= 1:
+            return
 
-        for cy in range(min_cy, max_cy + 1):
-            for cx in range(min_cx, max_cx + 1):
-                wx1 = cx * cs
-                wy1 = cy * cs
-                sx1, sy1 = camera.world_to_screen(wx1,      wy1)
-                sx2, sy2 = camera.world_to_screen(wx1 + cs, wy1 + cs)
+        canvas.delete("entity")
+        for cx, cy, sx1, sy1, sx2, sy2 in self._iter_visible_cells():
+            occupant = eco.grid.get((cx, cy))
+            if not (occupant and occupant.alive):
+                continue
+            if isinstance(occupant, Plant):
+                fill, symbol = t["plant_fill"], "🌿"
+            elif isinstance(occupant, Herbivore):
+                fill, symbol = occupant.genome.get_hex_color(), "🐇"
+            elif isinstance(occupant, Carnivore):
+                fill, symbol = occupant.genome.get_hex_color(), "🐺"
+            else:
+                fill, symbol = t.get("accent_bg", "#444"), "?"
 
-                occupant = eco.grid.get((cx, cy))
-                if occupant and occupant.alive:
-                    if isinstance(occupant, Plant):
-                        fill, symbol = t["plant_fill"], "🌿"
-                    elif isinstance(occupant, Herbivore):
-                        # Use genome-derived phenotype colour so players can
-                        # observe evolutionary change visually over time.
-                        fill, symbol = occupant.genome.get_hex_color(), "🐇"
-                    elif isinstance(occupant, Carnivore):
-                        fill, symbol = occupant.genome.get_hex_color(), "🐺"
-                    else:
-                        fill, symbol = t.get("accent_bg", "#444"), "?"
-                else:
-                    fill, symbol = t["empty_fill"], ""
+            canvas.create_rectangle(
+                sx1, sy1, sx2, sy2,
+                fill=fill, outline=t["grid_line"],
+                tags=("entity",),
+            )
 
-                canvas.create_rectangle(
-                    sx1, sy1, sx2, sy2,
-                    fill=fill, outline=t["grid_line"],
+            cell_px = sx2 - sx1
+            if symbol and cell_px >= 8:
+                font_size = max(8, int(cell_px * 0.55))
+                canvas.create_text(
+                    (sx1 + sx2) // 2, (sy1 + sy2) // 2,
+                    text=symbol,
+                    font=("Segoe UI Emoji", font_size),
+                    tags=("entity",),
                 )
-
-                # Only render emoji when cells are large enough to be legible
-                cell_px = sx2 - sx1
-                if symbol and cell_px >= 8:
-                    font_size = max(8, int(cell_px * 0.55))
-                    canvas.create_text(
-                        (sx1 + sx2) // 2, (sy1 + sy2) // 2,
-                        text=symbol,
-                        font=("Segoe UI Emoji", font_size),
-                    )
 
     # ── Tooltip / hover ───────────────────────────────────────────────────────
 
@@ -290,31 +330,36 @@ class SimulationPanel(tk.Frame):
 
         occupant = eco.grid.get((gx, gy))
         t = self._theme
+        terrain = eco.get_terrain(gx, gy)
+        terrain_name = self._terrain_name(terrain)
         if occupant and occupant.alive:
             kind = type(occupant).__name__
             if isinstance(occupant, Plant):
                 icon, color = "🌿", t["text_plant"]
                 lines = [
                     f"{icon}  {kind}  ({gx}, {gy})",
+                    f"Terrain: {terrain_name}",
                     f"Age: {occupant.age}",
                     "Energy: N/A",
                 ]
-                colors = [color, t.get("fg_secondary", t["fg"]), t.get("fg_secondary", t["fg"])]
+                secondary = t.get("fg_secondary", t["fg"])
+                colors = [color, secondary, secondary, secondary]
             else:
                 icon  = "🐇" if kind == "Herbivore" else "🐺"
                 color = t["text_herbivore"] if kind == "Herbivore" else t["text_carnivore"]
                 g = occupant.genome  # type: ignore[attr-defined]
                 lines = [
                     f"{icon}  {kind}  ({gx}, {gy})",
+                    f"Terrain: {terrain_name}",
                     f"Age: {occupant.age}  |  Energy: {occupant.energy:.1f}",  # type: ignore[attr-defined]
                     f"Size: {g.size:.2f}  Speed: {g.speed:.2f}  Vision: {g.vision}",
                     f"Metabolism: {g.metabolism:.2f}  |  {g.get_hex_color()}",
                 ]
                 secondary = t.get("fg_secondary", t["fg"])
-                colors = [color, secondary, secondary, secondary]
+                colors = [color, secondary, secondary, secondary, secondary]
         else:
-            lines  = [f"Empty  ({gx}, {gy})"]
-            colors = [t["label_fg"]]
+            lines  = [f"Empty  ({gx}, {gy})", f"Terrain: {terrain_name}"]
+            colors = [t["label_fg"], t.get("fg_secondary", t["fg"])]
 
         self._tooltip.show(lines, colors, event.x_root, event.y_root)
 
