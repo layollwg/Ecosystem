@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import numbers
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, Optional
@@ -27,7 +28,7 @@ class GameUI:
     event loop is never blocked.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, checkpoint_path: Optional[str] = None) -> None:
         apply_windows_dpi_awareness()
         self._root = tk.Tk()
         self._root.title("🌍 生态系统模拟器")
@@ -46,6 +47,12 @@ class GameUI:
         self._after_id: Optional[str] = None
         self._sim_paused: bool = False
         self._last_params: Optional[Dict[str, Any]] = None
+        self._checkpoint_path: Optional[str] = None
+        self._algo: Optional[Any] = None
+        self._ray_shutdown = None
+
+        if checkpoint_path:
+            self._load_checkpoint(checkpoint_path)
 
         self._show_config_panel()
 
@@ -157,6 +164,11 @@ class GameUI:
         """Close the application."""
         if self._after_id is not None:
             self._root.after_cancel(self._after_id)
+        if self._ray_shutdown is not None:
+            try:
+                self._ray_shutdown()
+            except Exception:
+                pass
         try:
             self._root.destroy()
         except tk.TclError:
@@ -186,7 +198,7 @@ class GameUI:
             return
 
         # Advance by one step
-        eco.step()
+        eco.step(action_dict=self._build_inference_actions(eco))
 
         # Update the panel
         try:
@@ -249,7 +261,7 @@ class GameUI:
             return
 
         # Advance exactly one tick
-        eco.step()
+        eco.step(action_dict=self._build_inference_actions(eco))
 
         try:
             self._sim_panel.update_display(eco.get_display_data())
@@ -260,6 +272,69 @@ class GameUI:
     def _on_speed_change(self, delay: float) -> None:
         if self._eco is not None:
             self._eco.tick_delay = delay
+
+    def _load_checkpoint(self, checkpoint_path: str) -> None:
+        resolved = os.path.abspath(os.path.expanduser(checkpoint_path))
+        if not os.path.exists(resolved):
+            messagebox.showerror("模型加载失败", f"Checkpoint 不存在：\n{resolved}")
+            return
+        try:
+            from ray import init as ray_init
+            from ray import shutdown as ray_shutdown
+            from ray.rllib.algorithms.ppo import PPO
+        except ImportError as exc:
+            messagebox.showerror(
+                "模型加载失败",
+                "当前环境未安装 Ray RLlib。\n请先执行：pip install -r requirement.txt",
+            )
+            raise RuntimeError("Ray RLlib is required for --load-checkpoint") from exc
+
+        ray_init(ignore_reinit_error=True, include_dashboard=False, log_to_driver=False)
+        self._ray_shutdown = ray_shutdown
+        try:
+            self._algo = PPO.from_checkpoint(resolved)
+            self._checkpoint_path = resolved
+        except Exception as exc:
+            messagebox.showerror("模型加载失败", f"无法恢复 checkpoint：\n{resolved}\n\n{exc}")
+            self._algo = None
+
+    def _build_inference_actions(self, eco: Any) -> Optional[Dict[int, int]]:
+        if self._algo is None:
+            return None
+        inference_batch = eco.get_inference_batch()
+        action_dict: Dict[int, int] = {}
+        try:
+            for public_agent_id, payload in inference_batch.items():
+                policy_id = payload["policy_id"]
+                obs = payload["observation"]
+                action = self._algo.compute_single_action(obs, policy_id=policy_id, explore=False)
+                if isinstance(action, tuple):
+                    if not action:
+                        raise TypeError("unexpected empty tuple action from RLlib")
+                    # RLlib may return (action, state, extra); first element is action.
+                    action = action[0]
+                if isinstance(action, bool):
+                    raise TypeError(f"unexpected boolean action from RLlib: {action!r}")
+                if isinstance(action, numbers.Real):
+                    int_action = int(action)
+                    if action != int_action:
+                        raise TypeError(f"non-integer real action from RLlib: {action!r}")
+                    action = int_action
+                else:
+                    raise TypeError(f"unexpected action type: {type(action).__name__}, value={action!r}")
+                if not (0 <= action <= 5):
+                    raise ValueError(f"action out of range [0, 5]: {action}")
+                action_dict[public_agent_id] = action
+        except Exception as exc:
+            messagebox.showerror(
+                "模型推理失败",
+                "推理失败，已回退为默认行为。\n"
+                "请检查 checkpoint 与当前环境观测/策略映射是否一致。\n\n"
+                f"{type(exc).__name__}: {exc}",
+            )
+            self._algo = None
+            return None
+        return action_dict
 
     # ── Export helpers ─────────────────────────────────────────────────────────
 

@@ -13,6 +13,12 @@ Position = Tuple[int, int]
 SPECIES_POOL_MULTIPLIER = 10
 MAX_RABBIT_POOL_CAP = 500
 MAX_FOX_POOL_CAP = 200
+RABBIT_POLICY_ID = "rabbit_policy"
+FOX_POLICY_ID = "fox_policy"
+SPECIES_POLICY_MAP = {
+    EcosystemEnv.SPECIES_RABBIT: RABBIT_POLICY_ID,
+    EcosystemEnv.SPECIES_FOX: FOX_POLICY_ID,
+}
 
 
 class Ecosystem:
@@ -173,6 +179,27 @@ class Ecosystem:
             "init_carnivores": self._init_carnivores,
             "grid_size": self.grid_size,
         }
+
+    def get_inference_batch(self) -> Dict[int, Dict[str, Any]]:
+        """Return current alive-agent observations keyed by UI public agent id."""
+        batch: Dict[int, Dict[str, Any]] = {}
+        for env_agent_id in self._env.agents:
+            public_id = self._agent_public_ids.get(env_agent_id)
+            if public_id is None:
+                continue
+            obs = self._last_obs.get(env_agent_id)
+            if obs is None:
+                continue
+            species = self._env.get_agent_species(env_agent_id)
+            policy_id = SPECIES_POLICY_MAP.get(species)
+            if policy_id is None:
+                raise KeyError(f"unsupported species for policy mapping: {species}")
+            batch[public_id] = {
+                "species": species,
+                "policy_id": policy_id,
+                "observation": obs,
+            }
+        return batch
 
     def _build_env_actions(self, action_dict: Optional[Dict[int, int]]) -> Dict[str, int]:
         if not action_dict:

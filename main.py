@@ -11,6 +11,12 @@ def _build_base_parser() -> argparse.ArgumentParser:
         default="ui",
         help="使用 Tkinter 图形界面运行，或以无界面课程训练模式运行",
     )
+    parser.add_argument(
+        "--load-checkpoint",
+        type=str,
+        default=None,
+        help="提供 RLlib Checkpoint 的绝对路径，用于 UI 推理回放",
+    )
     return parser
 
 
@@ -34,9 +40,11 @@ def main() -> None:
         run_curriculum(args)
         return
 
+    parser = _build_base_parser()
+    args = parser.parse_args(argv)
     from game_ui import GameUI
 
-    GameUI().run()
+    GameUI(checkpoint_path=args.load_checkpoint).run()
 
 
 if __name__ == "__main__":

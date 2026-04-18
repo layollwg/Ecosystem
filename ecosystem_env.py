@@ -104,6 +104,9 @@ class EcosystemEnv(ParallelEnv):
     def action_space(self, agent: str) -> spaces.Discrete:
         return self.action_spaces[agent]
 
+    def get_agent_species(self, agent_id: str) -> str:
+        return self._species_of(agent_id)
+
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         if seed is not None:
             self._rng.seed(seed)
