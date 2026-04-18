@@ -56,6 +56,97 @@ python3 main.py --mode headless --preset stable --grid-size 25 --episodes 10 --t
 ./checkpoints
 ```
 
+## 完整训练使用指导（Headless + RLlib）
+
+### 1）安装依赖
+
+推荐使用虚拟环境：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -U pip
+pip install -r requirement.txt
+```
+
+> `tkinter` 为 Python 标准库组件（UI 模式依赖），通常无需通过 pip 额外安装。
+
+### 2）确认命令行可用
+
+```bash
+python3 main.py --mode headless --help
+```
+
+如果这里报 `ModuleNotFoundError`，通常是依赖未安装完整，请重新执行 `pip install -r requirement.txt`。
+
+### 3）先做一次最小训练冒烟
+
+```bash
+python3 main.py --mode headless \
+  --preset stable \
+  --grid-size 20 \
+  --episodes 1 \
+  --ticks 100 \
+  --checkpoint-every 1
+```
+
+用途：快速确认训练流程、环境构建和检查点保存是否正常。
+
+### 4）执行标准课程训练
+
+```bash
+python3 main.py --mode headless \
+  --preset balanced \
+  --grid-size 25 \
+  --episodes 10 \
+  --ticks 300 \
+  --log-interval 1 \
+  --checkpoint-every 5 \
+  --checkpoint-dir ./checkpoints
+```
+
+训练将依次运行三个课程关卡：
+
+- `level1_collect_and_survive`
+- `level2_asymmetric_tracking`
+- `level3_self_play_coevolution`
+
+每个关卡结束会保存最终检查点，按 `--checkpoint-every` 还会保存中间检查点。
+
+### 5）统计一致性验证（不训练）
+
+```bash
+python3 main.py --mode headless \
+  --validate-statistics \
+  --preset stable \
+  --grid-size 25 \
+  --ticks 300 \
+  --alignment-runs 10 \
+  --checkpoint-dir ./checkpoints
+```
+
+该模式用于比较旧核心与并行环境的统计结果，不执行 PPO 训练；报告输出为：
+
+```text
+./checkpoints/statistical_alignment_report.json
+```
+
+### 6）关键参数建议
+
+- 快速调试：`--episodes 1~3 --ticks 50~150`
+- 常规训练：`--episodes 10+ --ticks 300+`
+- 更高稳定性：固定 `--seed`
+- 无 GPU 环境：保持 `--num-gpus 0`
+
+### 7）常见训练问题排查
+
+- **缺少依赖（如 numpy / gymnasium / pettingzoo）**  
+  重新执行 `pip install -r requirement.txt`
+- **训练速度慢**  
+  先减小 `--grid-size`、`--ticks`、`--episodes`
+- **检查点未生成**  
+  确认 `--checkpoint-every` 大于 0，且 `--checkpoint-dir` 目录可写
+
 ## 命令行参数说明
 
 ### 通用参数
