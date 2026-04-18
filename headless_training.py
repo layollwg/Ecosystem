@@ -69,10 +69,10 @@ def run_curriculum(args: argparse.Namespace) -> None:
     checkpoint_dir = Path(args.checkpoint_dir)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[headless] mode=curriculum preset={args.preset} grid={args.grid_size} episodes={args.episodes} ticks={args.ticks}")
+    print(f"[无界面] 模式=课程训练 预设={args.preset} 网格={args.grid_size} 回合={args.episodes} 步数={args.ticks}")
 
     for level in CURRICULUM_LEVELS:
-        print(f"[headless] start {level.name}")
+        print(f"[无界面] 开始 {level.name}")
 
         env = EcosystemCore(
             grid_size=args.grid_size,
@@ -100,10 +100,10 @@ def run_curriculum(args: argparse.Namespace) -> None:
 
             if episode % args.log_interval == 0:
                 print(
-                    f"[headless] {level.name} episode={episode} "
-                    f"reward={cumulative_reward:.2f} "
-                    f"mean_reward={(mean(level_rewards) if level_rewards else 0.0):.2f} "
-                    f"alive={len(info.get('agent_species', {}))}"
+                    f"[无界面] {level.name} 回合={episode} "
+                    f"奖励={cumulative_reward:.2f} "
+                    f"平均奖励={(mean(level_rewards) if level_rewards else 0.0):.2f} "
+                    f"存活体数={len(info.get('agent_species', {}))}"
                 )
 
             if args.checkpoint_every > 0 and episode % args.checkpoint_every == 0:
@@ -120,13 +120,13 @@ def run_curriculum(args: argparse.Namespace) -> None:
                 )
 
         print(
-            f"[headless] done {level.name} "
-            f"episodes={args.episodes} mean_reward={(mean(level_rewards) if level_rewards else 0.0):.2f}"
+            f"[无界面] 完成 {level.name} "
+            f"回合数={args.episodes} 平均奖励={(mean(level_rewards) if level_rewards else 0.0):.2f}"
         )
 
 
 def add_headless_args(parser: argparse.ArgumentParser) -> None:
-    group = parser.add_argument_group("headless mode options")
+    group = parser.add_argument_group("无界面模式参数")
     group.add_argument("--preset", default="stable", choices=list(config.PRESETS.keys()))
     group.add_argument("--grid-size", type=int, default=25)
     group.add_argument("--ticks", type=int, default=300)

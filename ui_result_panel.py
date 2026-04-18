@@ -88,7 +88,7 @@ class ResultPanel(tk.Frame):
         hdr.pack(fill="x")
         tk.Label(
             hdr,
-            text="🌍  ECOSYSTEM SIMULATOR — Simulation Complete",
+            text="🌍  生态系统模拟器——模拟结束",
             font=(_UI_FONT, 18, "bold"),
             bg=t.get("header_bg", t["bg"]),
             fg=t.get("fg_accent", t["fg"]),
@@ -114,16 +114,16 @@ class ResultPanel(tk.Frame):
         right.pack(side="right", fill="both", expand=True, padx=(8, 0))
 
         # ── Final statistics ──────────────────────────────────────────────────
-        stat_card = self._card(left, "📊  Final Statistics")
+        stat_card = self._card(left, "📊  最终统计")
         self._build_final_stats(stat_card, stats)
 
         # ── Export ────────────────────────────────────────────────────────────
-        exp_card = self._card(left, "📥  Export Data")
+        exp_card = self._card(left, "📥  数据导出")
         exp_row = tk.Frame(exp_card, bg=t["card_bg"])
         exp_row.pack(fill="x", pady=4)
         for label, cmd in [
-            ("📥 Export CSV",  self._on_export_csv),
-            ("📋 Export JSON", self._on_export_json),
+            ("📥 导出 CSV",  self._on_export_csv),
+            ("📋 导出 JSON", self._on_export_json),
         ]:
             tk.Button(
                 exp_row, text=label,
@@ -136,7 +136,7 @@ class ResultPanel(tk.Frame):
             ).pack(side="left", padx=4, pady=2)
 
         # ── Population chart ─────────────────────────────────────────────────
-        chart_card = self._card(right, "📈  Population History")
+        chart_card = self._card(right, "📈  种群历史")
         chart = EnhancedChart(
             chart_card, self._theme,
             width=420, height=200,
@@ -151,19 +151,19 @@ class ResultPanel(tk.Frame):
         )
 
         # ── Balance indicator ─────────────────────────────────────────────────
-        bal_card = self._card(right, "⚖️  Ecological Balance")
+        bal_card = self._card(right, "⚖️  生态平衡")
         self._build_balance(bal_card, stats)
 
         # ── Navigation buttons ────────────────────────────────────────────────
-        nav_card = self._card(parent, "🔄  What would you like to do next?")
+        nav_card = self._card(parent, "🔄  接下来你想做什么？")
         nav_card.pack(fill="x", padx=24, pady=(8, 16))
         nav_row = tk.Frame(nav_card, bg=t["card_bg"])
         nav_row.pack(fill="x", pady=4)
 
         for label, cmd, is_primary in [
-            ("◀  Back to Config",           self._on_back,       False),
-            ("🔄  Run Again (Same Params)",  self._on_run_again,  True),
-            ("❌  Exit",                     self._on_exit,       False),
+            ("◀  返回配置页",         self._on_back,       False),
+            ("🔄  重新运行（同参数）", self._on_run_again,  True),
+            ("❌  退出",               self._on_exit,       False),
         ]:
             tk.Button(
                 nav_row, text=label,
@@ -199,21 +199,21 @@ class ResultPanel(tk.Frame):
             ).pack(side="right")
 
         total_ticks = stats.get("tick", 0)
-        _row("Total Ticks Ran", str(total_ticks))
-        _row("Grid Size",
+        _row("已运行 Tick 数", str(total_ticks))
+        _row("网格尺寸",
              f"{stats.get('grid_size', '?')} × {stats.get('grid_size', '?')}")
 
         sep = tk.Frame(parent, bg=t.get("border", "#333"), height=1)
         sep.pack(fill="x", pady=4)
 
         for label, key, init_key, fg_key in [
-            ("🌿 Plants",     "plant_count",    "init_plants",     "text_plant"),
-            ("🦌 Herbivores", "herbivore_count", "init_herbivores", "text_herbivore"),
-            ("🦁 Carnivores", "carnivore_count", "init_carnivores", "text_carnivore"),
+            ("🌿 植物",     "plant_count",    "init_plants",     "text_plant"),
+            ("🦌 草食动物", "herbivore_count", "init_herbivores", "text_herbivore"),
+            ("🦁 肉食动物", "carnivore_count", "init_carnivores", "text_carnivore"),
         ]:
             final = stats.get(key, 0)
             initial = stats.get(init_key, "?")
-            _row(label, f"{final}  (started: {initial})", fg=t.get(fg_key, t["fg"]))
+            _row(label, f"{final}  （初始：{initial}）", fg=t.get(fg_key, t["fg"]))
 
         # Survival summary
         if total_ticks > 0:
@@ -225,9 +225,9 @@ class ResultPanel(tk.Frame):
                 if stats.get(k, 0) > 0
             )
             status_text = (
-                "✅ Full ecosystem survived!"
+                "✅ 三类生物全部存活！"
                 if survived == 3
-                else f"⚠️ {survived}/3 species survived"
+                else f"⚠️ 仅有 {survived}/3 类生物存活"
             )
             status_color = (
                 t.get("stat_positive", t["fg"])
@@ -250,7 +250,7 @@ class ResultPanel(tk.Frame):
         row = tk.Frame(parent, bg=t["card_bg"])
         row.pack(fill="x", pady=2)
         tk.Label(
-            row, text="Balance Index:",
+            row, text="平衡指数：",
             font=(_UI_FONT, 10),
             bg=t["card_bg"], fg=t["label_fg"],
         ).pack(side="left")
@@ -258,7 +258,7 @@ class ResultPanel(tk.Frame):
             t.get("stat_positive", t["fg"]) if balance >= 60
             else t.get("stat_negative", t["fg"])
         )
-        quality = "Excellent" if balance >= 80 else "Good" if balance >= 60 else "Poor"
+        quality = "优秀" if balance >= 80 else "良好" if balance >= 60 else "较差"
         tk.Label(
             row, text=f"{balance}/100  ({quality})",
             font=(_MONO_FONT, 10, "bold"),

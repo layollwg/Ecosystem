@@ -41,7 +41,7 @@ _ANIMAL_WINTER_EXTRA_COST: int = 0
 
 PRESETS: Dict[str, dict] = {
     "stable": {
-        "description": "Stable ecosystem — all three species coexist long-term",
+        "description": "稳定生态——三种生物可长期共存",
         # Plants: moderate reproduction rate with shorter lifespan to prevent
         # grid over-saturation during spring booms.
         "PLANT_REPRODUCTION_CHANCE": 0.35,
@@ -74,7 +74,7 @@ PRESETS: Dict[str, dict] = {
         "CARNIVORE_CROWDING_THRESHOLD": 3,
     },
     "balanced": {
-        "description": "Balanced ecosystem — moderate predator pressure",
+        "description": "均衡生态——捕食压力适中",
         "PLANT_REPRODUCTION_CHANCE": 0.28,
         "PLANT_MAX_AGE": 28,
         "HERBIVORE_INITIAL_ENERGY": 18,
@@ -97,7 +97,7 @@ PRESETS: Dict[str, dict] = {
         "CARNIVORE_CROWDING_THRESHOLD": 4,
     },
     "intense": {
-        "description": "Intense competition — dramatic population cycles with occasional crashes",
+        "description": "激烈竞争——种群波动显著，可能出现阶段性崩溃",
         "PLANT_REPRODUCTION_CHANCE": 0.20,
         "PLANT_MAX_AGE": 22,
         "HERBIVORE_INITIAL_ENERGY": 15,
@@ -132,7 +132,7 @@ def load_preset(name: str) -> None:
     global _active, _active_preset_name
     if name not in PRESETS:
         raise ValueError(
-            f"Unknown preset '{name}'. Available presets: {list(PRESETS.keys())}"
+            f"未知预设：'{name}'。可用预设：{list(PRESETS.keys())}"
         )
     _active = dict(PRESETS[name])
     _active_preset_name = name
@@ -179,10 +179,10 @@ def energy_flow_summary() -> str:
     herb_feeds = _active["HERBIVORE_REPRODUCTION_THRESHOLD"] / _active["HERBIVORE_ENERGY_GAIN"]
     carn_hunts = _active["CARNIVORE_REPRODUCTION_THRESHOLD"] / _active["CARNIVORE_ENERGY_GAIN"]
     return (
-        f"Preset : {_active_preset_name}\n"
-        f"  Plant repro chance          : {_active['PLANT_REPRODUCTION_CHANCE']:.0%}\n"
-        f"  Herbivore feeds to reproduce: {herb_feeds:.1f}\n"
-        f"  Herbivore satiation energy  : {_active['HERBIVORE_SATIATION_THRESHOLD']}\n"
-        f"  Carnivore hunts to reproduce: {carn_hunts:.1f}\n"
-        f"  Carnivore satiation energy  : {_active['CARNIVORE_SATIATION_THRESHOLD']}"
+        f"预设：{_active_preset_name}\n"
+        f"  植物繁殖概率            ：{_active['PLANT_REPRODUCTION_CHANCE']:.0%}\n"
+        f"  草食动物繁殖所需进食次数：{herb_feeds:.1f}\n"
+        f"  草食动物饱食阈值能量    ：{_active['HERBIVORE_SATIATION_THRESHOLD']}\n"
+        f"  肉食动物繁殖所需捕猎次数：{carn_hunts:.1f}\n"
+        f"  肉食动物饱食阈值能量    ：{_active['CARNIVORE_SATIATION_THRESHOLD']}"
     )

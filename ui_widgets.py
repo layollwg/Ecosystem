@@ -152,19 +152,19 @@ class StatisticsPanel(tk.Frame):
             return val_lbl
 
         # ── Population ──────────────────────────────────────────────────────
-        _section("🌍 Population")
-        self._plant_val  = _stat_row("🌿", "Plants", "text_plant")
-        self._herb_val   = _stat_row("🦌", "Herbivores", "text_herbivore")
-        self._carn_val   = _stat_row("🦁", "Carnivores", "text_carnivore")
+        _section("🌍 种群")
+        self._plant_val  = _stat_row("🌿", "植物", "text_plant")
+        self._herb_val   = _stat_row("🦌", "草食动物", "text_herbivore")
+        self._carn_val   = _stat_row("🦁", "肉食动物", "text_carnivore")
 
         # Trend row
         trend_row = tk.Frame(self, bg=t["panel_bg"])
         trend_row.pack(fill="x", padx=14, pady=(0, 4))
         self._themed.append(trend_row)
         for attr, label in (
-            ("_plant_trend", "Plants"),
-            ("_herb_trend", "Herbivores"),
-            ("_carn_trend", "Carnivores"),
+            ("_plant_trend", "植物"),
+            ("_herb_trend", "草食动物"),
+            ("_carn_trend", "肉食动物"),
         ):
             f = tk.Frame(trend_row, bg=t["panel_bg"])
             f.pack(side="left", expand=True)
@@ -177,22 +177,22 @@ class StatisticsPanel(tk.Frame):
             self._themed.append(f)
 
         # ── Averages ─────────────────────────────────────────────────────────
-        _section("📈 Averages")
-        self._avg_age    = _stat_row("⏱", "Avg Age", "fg")
-        self._avg_energy = _stat_row("⚡", "Avg Energy", "fg")
+        _section("📈 平均值")
+        self._avg_age    = _stat_row("⏱", "平均年龄", "fg")
+        self._avg_energy = _stat_row("⚡", "平均能量", "fg")
 
         # ── This Tick ────────────────────────────────────────────────────────
-        _section("🔄 This Tick")
-        self._births_val = _stat_row("✨", "Births", "stat_positive")
-        self._deaths_val = _stat_row("💀", "Deaths", "stat_negative")
+        _section("🔄 当前 Tick")
+        self._births_val = _stat_row("✨", "出生数", "stat_positive")
+        self._deaths_val = _stat_row("💀", "死亡数", "stat_negative")
 
         # ── Balance ──────────────────────────────────────────────────────────
-        _section("⚖️ Ecology")
+        _section("⚖️ 生态")
 
         bal_row = tk.Frame(self, bg=t["panel_bg"])
         bal_row.pack(fill="x", padx=14, pady=(2, 0))
         self._themed.append(bal_row)
-        tk.Label(bal_row, text="Balance:", font=(_UI_FONT, 10),
+        tk.Label(bal_row, text="平衡度：", font=(_UI_FONT, 10),
                  bg=t["panel_bg"], fg=t["label_fg"]).pack(side="left")
         self._balance_lbl = tk.Label(
             bal_row, text="--/100",
@@ -210,7 +210,7 @@ class StatisticsPanel(tk.Frame):
         self._bar_fill.place(relx=0, rely=0, relwidth=0.0, relheight=1.0)
         self._themed.append(bar_bg)
 
-        self._ratio_lbl = _stat_row("🔀", "Pred/Prey", "fg")
+        self._ratio_lbl = _stat_row("🔀", "捕食/被捕食", "fg")
 
     # ── Public update ─────────────────────────────────────────────────────────
 
@@ -422,14 +422,14 @@ class EnhancedChart(tk.Canvas):
         )
         self.create_text(
             lx + 4, ly + 8,
-            text="Legend", anchor="w",
+            text="图例", anchor="w",
             font=(_MONO_FONT, 8, "bold"),
             fill=t["label_fg"],
         )
         for i, (label, color) in enumerate([
-            ("Plants",      t["chart_plant"]),
-            ("Herbivores",  t["chart_herbivore"]),
-            ("Carnivores",  t["chart_carnivore"]),
+            ("植物",      t["chart_plant"]),
+            ("草食动物",  t["chart_herbivore"]),
+            ("肉食动物",  t["chart_carnivore"]),
         ]):
             row_y = ly + 22 + i * 17
             self.create_line(lx + 4, row_y, lx + 18, row_y, fill=color, width=2)
