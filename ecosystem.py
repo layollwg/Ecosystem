@@ -191,7 +191,9 @@ class Ecosystem:
             if obs is None:
                 continue
             species = self._env.get_agent_species(env_agent_id)
-            policy_id = SPECIES_POLICY_MAP.get(species, FOX_POLICY_ID)
+            policy_id = SPECIES_POLICY_MAP.get(species)
+            if policy_id is None:
+                raise KeyError(f"unsupported species for policy mapping: {species}")
             batch[public_id] = {
                 "species": species,
                 "policy_id": policy_id,

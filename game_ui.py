@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import numbers
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from typing import Any, Dict, Optional
@@ -310,14 +311,16 @@ class GameUI:
                 if isinstance(action, tuple):
                     if not action:
                         raise TypeError("unexpected empty tuple action from RLlib")
+                    # RLlib may return (action, state, extra); first element is action.
                     action = action[0]
                 if isinstance(action, bool):
                     raise TypeError(f"unexpected boolean action from RLlib: {action!r}")
-                if isinstance(action, float):
-                    if not action.is_integer():
-                        raise TypeError(f"non-integer float action from RLlib: {action!r}")
-                    action = int(action)
-                elif not isinstance(action, int):
+                if isinstance(action, numbers.Real):
+                    int_action = int(action)
+                    if action != int_action:
+                        raise TypeError(f"non-integer real action from RLlib: {action!r}")
+                    action = int_action
+                else:
                     raise TypeError(f"unexpected action type: {type(action).__name__}, value={action!r}")
                 if not (0 <= action <= 5):
                     raise ValueError(f"action out of range [0, 5]: {action}")
