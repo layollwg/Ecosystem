@@ -32,6 +32,7 @@ class EcosystemEnv(ParallelEnv):
     REPRODUCE_FRACTION = 0.8
     MUTATION_RATE = 0.05
     PARENT_POST_REPRODUCE_ENERGY_RATIO = 0.6
+    REPRODUCTION_MATURITY_AGE_RATIO = 0.2
     SPECIES_RABBIT = "rabbit"
     SPECIES_FOX = "fox"
 
@@ -69,6 +70,9 @@ class EcosystemEnv(ParallelEnv):
         self.agent_to_object: Dict[str, Animal] = {}
         self.terrain_grid: Dict[Position, TerrainType] = {}
         self.plants: Set[Position] = set()
+        self._occupied_positions: Set[Position] = set()
+        self._rabbit_positions: Set[Position] = set()
+        self._fox_positions: Set[Position] = set()
 
         self._step_count = 0
         self._rng = random.Random()
@@ -82,6 +86,7 @@ class EcosystemEnv(ParallelEnv):
                 {
                     "grid": spaces.Box(low=-1.0, high=1.0, shape=(4, 11, 11), dtype=np.float32),
                     "state": spaces.Box(low=0.0, high=1.0, shape=(3,), dtype=np.float32),
+                    "action_mask": spaces.Box(low=0, high=1, shape=(6,), dtype=np.int8),
                 }
             )
             for agent_id in self.possible_agents
@@ -116,6 +121,7 @@ class EcosystemEnv(ParallelEnv):
         self._spawn_initial_plants()
         self._spawn_initial_animals(self.SPECIES_RABBIT, self.initial_rabbits)
         self._spawn_initial_animals(self.SPECIES_FOX, self.initial_foxes)
+        self._rebuild_position_indices()
 
         observations = {agent_id: self._get_obs(agent_id) for agent_id in self.agents}
         infos = {
@@ -175,6 +181,7 @@ class EcosystemEnv(ParallelEnv):
         for agent_id, target in desired_positions.items():
             organism = self.agent_to_object[agent_id]
             organism.x, organism.y = target
+        self._rebuild_position_indices()
 
         eaten_rabbits: Set[str] = set()
 
@@ -233,7 +240,7 @@ class EcosystemEnv(ParallelEnv):
                 continue
 
             species = self._species_of(agent_id)
-            birth_pos = self._find_birth_position(organism.x, organism.y)
+            birth_pos = self._find_birth_position(organism.x, organism.y, self._occupied_positions)
             if birth_pos is None:
                 continue
 
@@ -245,6 +252,7 @@ class EcosystemEnv(ParallelEnv):
             organism.energy *= self.PARENT_POST_REPRODUCE_ENERGY_RATIO
             rewards[agent_id] += 5.0
             infos[agent_id]["spawned"] = child_id
+        self._rebuild_position_indices()
 
         dead_agents: List[str] = []
         for agent_id in current_agents:
@@ -266,6 +274,7 @@ class EcosystemEnv(ParallelEnv):
             rewards[agent_id] -= 10.0
             infos[agent_id]["true_generation"] = self.agent_generations[agent_id]
             self._kill_agent(agent_id)
+        self._rebuild_position_indices()
 
         episode_truncated = self.max_steps is not None and self._step_count >= self.max_steps
         if episode_truncated:
@@ -273,6 +282,7 @@ class EcosystemEnv(ParallelEnv):
                 truncations[agent_id] = True
             self.agents.clear()
             self.agent_to_object.clear()
+            self._rebuild_position_indices()
 
         for agent_id in self.agents:
             if agent_id not in rewards:
@@ -288,6 +298,7 @@ class EcosystemEnv(ParallelEnv):
             observations[agent_id] = self._get_obs(agent_id)
 
         self._regrow_plants()
+        self._rebuild_position_indices()
 
         return observations, rewards, terminations, truncations, infos
 
@@ -409,9 +420,23 @@ class EcosystemEnv(ParallelEnv):
 
         self.agent_to_object[new_id] = organism
         self.agents.append(new_id)
+        pos = (x, y)
+        self._occupied_positions.add(pos)
+        if species == self.SPECIES_RABBIT:
+            self._rabbit_positions.add(pos)
+        else:
+            self._fox_positions.add(pos)
         return new_id
 
     def _kill_agent(self, agent_id: str) -> None:
+        organism = self.agent_to_object.get(agent_id)
+        if organism is not None:
+            pos = (organism.x, organism.y)
+            self._occupied_positions.discard(pos)
+            if self._species_of(agent_id) == self.SPECIES_RABBIT:
+                self._rabbit_positions.discard(pos)
+            else:
+                self._fox_positions.discard(pos)
         queue = (
             self.available_rabbits
             if self._species_of(agent_id) == self.SPECIES_RABBIT
@@ -424,19 +449,23 @@ class EcosystemEnv(ParallelEnv):
             self.agents.remove(agent_id)
 
     def _sample_empty_land_position(self) -> Optional[Position]:
-        occupied = {(self.agent_to_object[a].x, self.agent_to_object[a].y) for a in self.agents}
         candidates = [
             (x, y)
             for x in range(self.grid_size)
             for y in range(self.grid_size)
-            if is_land_passable(self.terrain_grid[(x, y)]) and (x, y) not in occupied
+            if is_land_passable(self.terrain_grid[(x, y)]) and (x, y) not in self._occupied_positions
         ]
         if not candidates:
             return None
         return self._rng.choice(candidates)
 
-    def _find_birth_position(self, x: int, y: int) -> Optional[Position]:
-        occupied = {(self.agent_to_object[a].x, self.agent_to_object[a].y) for a in self.agents}
+    def _find_birth_position(
+        self,
+        x: int,
+        y: int,
+        occupied: Optional[Set[Position]] = None,
+    ) -> Optional[Position]:
+        occupied_positions = occupied if occupied is not None else self._occupied_positions
         candidates: List[Position] = []
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
@@ -445,7 +474,7 @@ class EcosystemEnv(ParallelEnv):
                 nx, ny = x + dx, y + dy
                 if not self._is_valid_target(nx, ny):
                     continue
-                if (nx, ny) in occupied:
+                if (nx, ny) in occupied_positions:
                     continue
                 candidates.append((nx, ny))
         if not candidates:
@@ -457,14 +486,13 @@ class EcosystemEnv(ParallelEnv):
         if self._rng.random() >= growth_chance:
             return
 
-        occupied = {(self.agent_to_object[a].x, self.agent_to_object[a].y) for a in self.agents}
         candidates = [
             (x, y)
             for x in range(self.grid_size)
             for y in range(self.grid_size)
             if self.terrain_grid[(x, y)] == TerrainType.DIRT
             and (x, y) not in self.plants
-            and (x, y) not in occupied
+            and (x, y) not in self._occupied_positions
         ]
         if candidates:
             self.plants.add(self._rng.choice(candidates))
@@ -481,17 +509,6 @@ class EcosystemEnv(ParallelEnv):
             TerrainType.MOUNTAIN: 1.0,
         }
 
-        rabbit_positions = {
-            (self.agent_to_object[a].x, self.agent_to_object[a].y)
-            for a in self.agents
-            if self._species_of(a) == self.SPECIES_RABBIT
-        }
-        fox_positions = {
-            (self.agent_to_object[a].x, self.agent_to_object[a].y)
-            for a in self.agents
-            if self._species_of(a) == self.SPECIES_FOX
-        }
-
         for iy, dy in enumerate(range(-radius, radius + 1)):
             for ix, dx in enumerate(range(-radius, radius + 1)):
                 x = organism.x + dx
@@ -504,8 +521,8 @@ class EcosystemEnv(ParallelEnv):
                 terrain = self.terrain_grid[pos]
                 grid_obs[0, iy, ix] = terrain_channel_map[terrain]
                 grid_obs[1, iy, ix] = 1.0 if pos in self.plants else 0.0
-                grid_obs[2, iy, ix] = 1.0 if pos in rabbit_positions else 0.0
-                grid_obs[3, iy, ix] = 1.0 if pos in fox_positions else 0.0
+                grid_obs[2, iy, ix] = 1.0 if pos in self._rabbit_positions else 0.0
+                grid_obs[3, iy, ix] = 1.0 if pos in self._fox_positions else 0.0
 
         state_obs = np.array(
             [
@@ -516,7 +533,11 @@ class EcosystemEnv(ParallelEnv):
             dtype=np.float32,
         )
 
-        return {"grid": grid_obs, "state": state_obs}
+        return {
+            "grid": grid_obs,
+            "state": state_obs,
+            "action_mask": self._get_action_mask(agent_id),
+        }
 
     def _normalized_energy(self, organism: Animal) -> float:
         if isinstance(organism, Herbivore):
@@ -528,6 +549,8 @@ class EcosystemEnv(ParallelEnv):
         return float(np.clip(organism.energy / max_energy, 0.0, 1.0))
 
     def _can_reproduce(self, organism: Animal) -> bool:
+        if not self._is_reproductive_age(organism):
+            return False
         if isinstance(organism, Herbivore):
             threshold = (
                 self.HERBIVORE_MAX_ENERGY_FACTOR
@@ -541,6 +564,59 @@ class EcosystemEnv(ParallelEnv):
             * organism.genome.size
         )
         return organism.energy > threshold
+
+    def _is_reproductive_age(self, organism: Animal) -> bool:
+        maturity_age = max(1, int(organism.max_age * self.REPRODUCTION_MATURITY_AGE_RATIO))
+        return organism.age >= maturity_age
+
+    def _has_birth_space(self, x: int, y: int) -> bool:
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                if dx == 0 and dy == 0:
+                    continue
+                nx, ny = x + dx, y + dy
+                if not self._is_valid_target(nx, ny):
+                    continue
+                if (nx, ny) in self._occupied_positions:
+                    continue
+                return True
+        return False
+
+    def _get_action_mask(self, agent_id: str) -> np.ndarray:
+        organism = self.agent_to_object[agent_id]
+        mask = np.ones(6, dtype=np.int8)
+
+        for action in (self.ACTION_UP, self.ACTION_DOWN, self.ACTION_LEFT, self.ACTION_RIGHT):
+            dx, dy = self._action_to_delta(action)
+            nx, ny = organism.x + dx, organism.y + dy
+            if not self._is_valid_target(nx, ny):
+                mask[action] = 0
+
+        species = self._species_of(agent_id)
+        pool_available = (
+            len(self.available_rabbits) > 0
+            if species == self.SPECIES_RABBIT
+            else len(self.available_foxes) > 0
+        )
+        if (not pool_available) or (not self._can_reproduce(organism)) or (not self._has_birth_space(organism.x, organism.y)):
+            mask[self.ACTION_REPRODUCE] = 0
+
+        return mask
+
+    def _rebuild_position_indices(self) -> None:
+        self._occupied_positions = set()
+        self._rabbit_positions = set()
+        self._fox_positions = set()
+        for agent_id in self.agents:
+            organism = self.agent_to_object.get(agent_id)
+            if organism is None:
+                continue
+            pos = (organism.x, organism.y)
+            self._occupied_positions.add(pos)
+            if self._species_of(agent_id) == self.SPECIES_RABBIT:
+                self._rabbit_positions.add(pos)
+            else:
+                self._fox_positions.add(pos)
 
     def _species_of(self, agent_id: str) -> str:
         return (

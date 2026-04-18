@@ -57,7 +57,11 @@ class RewardConfig:
 
 
 class EcosystemCore:
-    """Tk-independent simulation core with RL-friendly API."""
+    """Tk-independent legacy simulation core with RL-friendly API.
+
+    Deprecated: kept as a compatibility baseline while `ecosystem.py` transitions
+    UI-facing usage to `ecosystem_env.EcosystemEnv`.
+    """
 
     ACTION_STAY = 0
     ACTION_UP = 1
