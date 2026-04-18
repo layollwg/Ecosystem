@@ -13,6 +13,8 @@ Position = Tuple[int, int]
 SPECIES_POOL_MULTIPLIER = 10
 MAX_RABBIT_POOL_CAP = 500
 MAX_FOX_POOL_CAP = 200
+RABBIT_POLICY_ID = "rabbit_policy"
+FOX_POLICY_ID = "fox_policy"
 
 
 class Ecosystem:
@@ -185,7 +187,7 @@ class Ecosystem:
             if obs is None:
                 continue
             species = self._env.get_agent_species(env_agent_id)
-            policy_id = "rabbit_policy" if species == self._env.SPECIES_RABBIT else "fox_policy"
+            policy_id = RABBIT_POLICY_ID if species == self._env.SPECIES_RABBIT else FOX_POLICY_ID
             batch[public_id] = {
                 "species": species,
                 "policy_id": policy_id,

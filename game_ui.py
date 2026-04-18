@@ -308,6 +308,8 @@ class GameUI:
                 obs = payload["observation"]
                 action = self._algo.compute_single_action(obs, policy_id=policy_id, explore=False)
                 if isinstance(action, tuple):
+                    if not action:
+                        raise TypeError("unexpected empty tuple action from RLlib")
                     action = action[0]
                 if not isinstance(action, (int, float)):
                     raise TypeError(f"unexpected action type: {type(action).__name__}, value={action!r}")
