@@ -240,10 +240,10 @@ class UIManager:
                         symbol = "🌿"
                     elif isinstance(occupant, Herbivore):
                         fill   = t["herbivore_fill"]
-                        symbol = "🐇"
+                        symbol = "🦌"
                     elif isinstance(occupant, Carnivore):
                         fill   = t["carnivore_fill"]
-                        symbol = "🐺"
+                        symbol = "🦁"
                     else:
                         fill   = t.get("accent_bg", "#444")
                         symbol = "?"
@@ -285,7 +285,7 @@ class UIManager:
                 ]
                 colors = [color, t.get("fg_secondary", t["fg"]), t.get("fg_secondary", t["fg"])]
             elif isinstance(occupant, Animal):  # type: ignore[attr-defined]
-                icon = "🐇" if kind == "Herbivore" else "🐺"
+                icon = "🦌" if kind == "Herbivore" else "🦁"
                 color = t["text_herbivore"] if kind == "Herbivore" else t["text_carnivore"]
                 energy = occupant.energy  # type: ignore[attr-defined]
                 lines = [

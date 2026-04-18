@@ -86,14 +86,14 @@ class StatsOverlay(tk.Frame):
         self._plant_lbl.pack(side="left", padx=(0, 6))
 
         self._herb_lbl = tk.Label(
-            counts_row, text="🐇  —",
+            counts_row, text="🦌  —",
             font=(_UI_FONT, 10, "bold"),
             bg=bg, fg=t.get("text_herbivore", "#f39c12"),
         )
         self._herb_lbl.pack(side="left", padx=(0, 6))
 
         self._carn_lbl = tk.Label(
-            counts_row, text="🐺  —",
+            counts_row, text="🦁  —",
             font=(_UI_FONT, 10, "bold"),
             bg=bg, fg=t.get("text_carnivore", "#e74c3c"),
         )
@@ -151,8 +151,8 @@ class StatsOverlay(tk.Frame):
         season_str = f"  {season}" if season else ""
         self._tick_lbl.config(text=f"Tick {tick}{season_str}")
         self._plant_lbl.config(text=f"🌿  {plants}")
-        self._herb_lbl.config( text=f"🐇  {herbs}")
-        self._carn_lbl.config( text=f"🐺  {carns}")
+        self._herb_lbl.config( text=f"🦌  {herbs}")
+        self._carn_lbl.config( text=f"🦁  {carns}")
 
         balance = _calc_balance(plants, herbs, carns)
         self._balance_lbl.config(text=f"{balance}%")

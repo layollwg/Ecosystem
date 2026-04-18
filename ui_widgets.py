@@ -154,8 +154,8 @@ class StatisticsPanel(tk.Frame):
         # ── Population ──────────────────────────────────────────────────────
         _section("🌍 Population")
         self._plant_val  = _stat_row("🌿", "Plants", "text_plant")
-        self._herb_val   = _stat_row("🐇", "Herbivores", "text_herbivore")
-        self._carn_val   = _stat_row("🐺", "Carnivores", "text_carnivore")
+        self._herb_val   = _stat_row("🦌", "Herbivores", "text_herbivore")
+        self._carn_val   = _stat_row("🦁", "Carnivores", "text_carnivore")
 
         # Trend row
         trend_row = tk.Frame(self, bg=t["panel_bg"])

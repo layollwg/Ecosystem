@@ -5,55 +5,55 @@ from typing import Dict, Optional
 # ── Sunlit Nature Palette (向阳生态) ──────────────────────────────────────────
 NATURE_LIGHT: Dict[str, str] = {
     # Backgrounds
-    "bg":              "#FDFBF7",   # warm sandy white — main window & empty grid
-    "card_bg":         "#FFFFFF",   # pure white cards
-    "panel_bg":        "#F8FAFC",   # very light gray-white panels
-    "accent_bg":       "#ECFDF5",   # pale mint — accent background
-    "header_bg":       "#166534",   # deep forest green header
+    "bg":              "#F2EFE7",   # warm linen — softer than pure white
+    "card_bg":         "#F7F4ED",   # light parchment cards
+    "panel_bg":        "#ECE8DF",   # muted warm panel background
+    "accent_bg":       "#E1E9DC",   # soft sage accent
+    "header_bg":       "#2D5A4B",   # deep muted forest green header
     # Text
-    "fg":              "#166534",   # deep forest green — primary text
-    "fg_secondary":    "#64748B",   # slate gray — secondary text
-    "fg_accent":       "#10B981",   # emerald green — accents / links
-    "fg_highlight":    "#22C55E",   # spring green — highlights
+    "fg":              "#2D4A3F",   # muted forest green — primary text
+    "fg_secondary":    "#6B7280",   # calm slate gray — secondary text
+    "fg_accent":       "#4F8A72",   # softened emerald accent
+    "fg_highlight":    "#5D9A72",   # gentle green highlight
     # Grid
-    "grid_bg":         "#FDFBF7",   # warm white grid background
-    "grid_line":       "#ECFDF5",   # barely-visible pale-green grid lines
-    "empty_fill":      "#FDFBF7",   # same as grid_bg — empty cells
-    "terrain_water":   "#93C5FD",
-    "terrain_sand":    "#F5DEB3",
-    "terrain_dirt":    "#D9F99D",
-    "terrain_mountain":"#9CA3AF",
+    "grid_bg":         "#EFEAE1",   # soft warm grid background
+    "grid_line":       "#D2CEC3",   # gentle neutral grid lines
+    "empty_fill":      "#EEE9E0",   # subtle empty cells
+    "terrain_water":   "#8AAFC9",
+    "terrain_sand":    "#D8C39E",
+    "terrain_dirt":    "#B8C89A",
+    "terrain_mountain":"#8B9299",
     # Organisms
-    "plant_fill":      "#DCFCE7",   # pale spring-green plant cells
-    "herbivore_fill":  "#FEF3C7",   # pale amber herbivore cells
-    "carnivore_fill":  "#FEE2E2",   # pale rose carnivore cells
-    "text_plant":      "#22C55E",   # vivid spring green
-    "text_herbivore":  "#F59E0B",   # warm amber
-    "text_carnivore":  "#EF4444",   # berry red
+    "plant_fill":      "#C9DAB6",   # muted soft-green plant cells
+    "herbivore_fill":  "#E4D4B3",   # muted amber herbivore cells
+    "carnivore_fill":  "#DBBDBE",   # muted rose carnivore cells
+    "text_plant":      "#4E7F4D",   # earthy green
+    "text_herbivore":  "#936A33",   # subdued amber-brown
+    "text_carnivore":  "#954A4F",   # muted red-brown
     # Buttons
-    "button_bg":       "#10B981",   # emerald green buttons
+    "button_bg":       "#4F8A72",   # muted emerald buttons
     "button_fg":       "#FFFFFF",
-    "button_active_bg": "#059669",  # darker emerald on hover
-    "button_border":   "#10B981",
+    "button_active_bg": "#3F735F",  # darker muted emerald on hover
+    "button_border":   "#4F8A72",
     # Chart
-    "chart_bg":        "#F8FAFC",
-    "chart_axis":      "#94A3B8",   # cool slate
-    "chart_grid":      "#E2E8F0",
-    "chart_plant":     "#22C55E",
-    "chart_herbivore": "#F59E0B",
-    "chart_carnivore": "#EF4444",
+    "chart_bg":        "#EDE8DE",
+    "chart_axis":      "#7E8794",   # softened slate
+    "chart_grid":      "#D4D0C6",
+    "chart_plant":     "#4E7F4D",
+    "chart_herbivore": "#936A33",
+    "chart_carnivore": "#954A4F",
     # Stats / labels
-    "label_fg":        "#64748B",
-    "legend_bg":       "#FFFFFF",
-    "legend_outline":  "#E2E8F0",
-    "stat_positive":   "#22C55E",
-    "stat_negative":   "#EF4444",
-    "stat_neutral":    "#94A3B8",
-    "perf_fg":         "#10B981",
+    "label_fg":        "#6B7280",
+    "legend_bg":       "#F7F4ED",
+    "legend_outline":  "#D4D0C6",
+    "stat_positive":   "#5D9A72",
+    "stat_negative":   "#954A4F",
+    "stat_neutral":    "#7E8794",
+    "perf_fg":         "#4F8A72",
     # Borders
-    "border":          "#E2E8F0",   # light gray border
-    "border_glow":     "#A7F3D0",   # pale leaf-green glow
-    "separator":       "#E2E8F0",
+    "border":          "#CFCAC0",   # warm gray border
+    "border_glow":     "#B8C8B6",   # subtle leaf glow
+    "separator":       "#D4D0C6",
 }
 
 # ── Modern light theme ────────────────────────────────────────────────────────

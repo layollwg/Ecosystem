@@ -26,7 +26,7 @@ class SimulationPanel(tk.Frame):
         │  ┌──────────────────────┐             ┌──────────────┐  │
         │  │ 🌍 ECOSYSTEM          │             │ ✕  📊 Data   │  │
         │  │ Tick 123 🌱           │             │ Statistics   │  │
-        │  │ 🌿 45  🐇 28  🐺 8    │             │ Population   │  │
+        │  │ 🌿 45  🦌 28  🦁 8    │             │ Population   │  │
         │  │ Balance: ████░░ 75%  │             │ Chart        │  │
         │  │ FPS: 60              │             └──────────────┘  │
         │  └──────────────────────┘                               │
@@ -291,13 +291,13 @@ class SimulationPanel(tk.Frame):
             if not (occupant and occupant.alive):
                 continue
             if isinstance(occupant, Plant):
-                fill, symbol = t["plant_fill"], "🌿"
+                fill, symbol, symbol_color = t["plant_fill"], "🌿", t["text_plant"]
             elif isinstance(occupant, Herbivore):
-                fill, symbol = occupant.genome.get_hex_color(), "🐇"
+                fill, symbol, symbol_color = occupant.genome.get_hex_color(), "🦌", t["text_herbivore"]
             elif isinstance(occupant, Carnivore):
-                fill, symbol = occupant.genome.get_hex_color(), "🐺"
+                fill, symbol, symbol_color = occupant.genome.get_hex_color(), "🦁", t["text_carnivore"]
             else:
-                fill, symbol = t.get("accent_bg", "#444"), "?"
+                fill, symbol, symbol_color = t.get("accent_bg", "#444"), "?", t["fg"]
 
             canvas.create_rectangle(
                 sx1, sy1, sx2, sy2,
@@ -312,6 +312,7 @@ class SimulationPanel(tk.Frame):
                     (sx1 + sx2) // 2, (sy1 + sy2) // 2,
                     text=symbol,
                     font=("Segoe UI Emoji", font_size),
+                    fill=symbol_color,
                     tags=("entity",),
                 )
 
@@ -345,7 +346,7 @@ class SimulationPanel(tk.Frame):
                 secondary = t.get("fg_secondary", t["fg"])
                 colors = [color, secondary, secondary, secondary]
             else:
-                icon  = "🐇" if kind == "Herbivore" else "🐺"
+                icon  = "🦌" if kind == "Herbivore" else "🦁"
                 color = t["text_herbivore"] if kind == "Herbivore" else t["text_carnivore"]
                 g = occupant.genome  # type: ignore[attr-defined]
                 lines = [
