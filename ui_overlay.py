@@ -131,7 +131,7 @@ class StatsOverlay(tk.Frame):
         # Hint
         tk.Label(
             self,
-            text="滚轮：缩放  |  右键/中键拖拽：平移  |  双击左键：重置视图",
+            text="滚轮缩放、右键/中键拖拽平移、双击左键重置视图",
             font=(_UI_FONT, 8),
             bg=bg, fg=t.get("label_fg", t["fg"]),
         ).pack(anchor="w", pady=(4, 0))

@@ -213,7 +213,7 @@ class ResultPanel(tk.Frame):
         ]:
             final = stats.get(key, 0)
             initial = stats.get(init_key, "?")
-            _row(label, f"{final}  （初始：{initial}）", fg=t.get(fg_key, t["fg"]))
+            _row(label, f"{final} （初始：{initial}）", fg=t.get(fg_key, t["fg"]))
 
         # Survival summary
         if total_ticks > 0:

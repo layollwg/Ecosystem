@@ -335,11 +335,11 @@ class SimulationPanel(tk.Frame):
         terrain_name = self._terrain_name(terrain)
         if occupant and occupant.alive:
             kind = type(occupant).__name__
-            kind_cn = {"Plant": "植物", "Herbivore": "草食动物", "Carnivore": "肉食动物"}.get(kind, kind)
+            localized_kind = {"Plant": "植物", "Herbivore": "草食动物", "Carnivore": "肉食动物"}.get(kind, kind)
             if isinstance(occupant, Plant):
                 icon, color = "🌿", t["text_plant"]
                 lines = [
-                    f"{icon}  {kind_cn}  （{gx}, {gy}）",
+                    f"{icon}  {localized_kind}  （{gx}, {gy}）",
                     f"地形：{terrain_name}",
                     f"年龄：{occupant.age}",
                     "能量：不适用",
@@ -351,7 +351,7 @@ class SimulationPanel(tk.Frame):
                 color = t["text_herbivore"] if kind == "Herbivore" else t["text_carnivore"]
                 g = occupant.genome  # type: ignore[attr-defined]
                 lines = [
-                    f"{icon}  {kind_cn}  （{gx}, {gy}）",
+                    f"{icon}  {localized_kind}  （{gx}, {gy}）",
                     f"地形：{terrain_name}",
                     f"年龄：{occupant.age}  |  能量：{occupant.energy:.1f}",  # type: ignore[attr-defined]
                     f"体型：{g.size:.2f}  速度：{g.speed:.2f}  视野：{g.vision}",
