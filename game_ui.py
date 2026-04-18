@@ -312,7 +312,12 @@ class GameUI:
                     action = action[0]
                 action_dict[public_agent_id] = int(action)
         except Exception as exc:
-            messagebox.showerror("模型推理失败", f"推理失败，已回退为默认行为。\n\n{exc}")
+            messagebox.showerror(
+                "模型推理失败",
+                "推理失败，已回退为默认行为。\n"
+                "请检查 checkpoint 与当前环境观测/策略映射是否一致。\n\n"
+                f"{type(exc).__name__}: {exc}",
+            )
             self._algo = None
             return None
         return action_dict
