@@ -33,6 +33,7 @@ class Organism(ABC):
         self.agent_id = -1
         self.age = 0
         self.max_age = max_age
+        # Lineage metadata for kinship-aware observation/reward logic (v2).
         self.parent_id: Optional[int] = None
         self.lineage_id: Optional[int] = None
         self.generation: int = 0
@@ -83,6 +84,12 @@ class Animal(Organism, ABC):
     do not use the genetics system.
     """
 
+    DIET_HERBIVORE_THRESHOLD = 0.5
+    DIET_DEFAULT_VALUE = 0.25
+    HERBIVORE_MAX_ENERGY_FACTOR = 100.0
+    CARNIVORE_MAX_ENERGY_FACTOR = 150.0
+    TRAIT_SATIATION_FRACTION = 0.9
+
     def __init__(
         self,
         x: int,
@@ -93,7 +100,9 @@ class Animal(Organism, ABC):
         genome: Optional[Genome] = None,
     ) -> None:
         super().__init__(x, y, symbol, max_age)
-        self.genome: Genome = genome if genome is not None else Genome(1.0, 1.0, 1, 1.0, 0.25)
+        self.genome: Genome = genome if genome is not None else Genome(
+            1.0, 1.0, 1, 1.0, self.DIET_DEFAULT_VALUE
+        )
         self.energy: float = energy
 
     # ── Energy model ──────────────────────────────────────────────────────────
@@ -135,10 +144,25 @@ class Animal(Organism, ABC):
     # ── Trait helpers ──────────────────────────────────────────────────────────
 
     def is_herbivore_trait(self) -> bool:
-        return self.genome.diet < 0.5
+        return self.genome.diet < self.DIET_HERBIVORE_THRESHOLD
 
     def is_carnivore_trait(self) -> bool:
         return not self.is_herbivore_trait()
+
+    def trait_max_energy_factor(self) -> float:
+        return (
+            self.HERBIVORE_MAX_ENERGY_FACTOR
+            if self.is_herbivore_trait()
+            else self.CARNIVORE_MAX_ENERGY_FACTOR
+        )
+
+    def inherit_lineage_from_parent(self, parent: "Animal") -> None:
+        self.parent_id = parent.agent_id
+        self.lineage_id = parent.lineage_id if parent.lineage_id is not None else parent.agent_id
+        self.generation = parent.generation + 1
+
+    def trait_satiation_energy(self) -> float:
+        return self.trait_max_energy_factor() * self.TRAIT_SATIATION_FRACTION * self.genome.size
 
     def try_reproduce(self, ecosystem: Ecosystem) -> bool:
         """Public reproduction hook for external controllers (e.g. RL policies)."""
@@ -232,6 +256,7 @@ class Herbivore(Animal):
     _MAX_ENERGY_FACTOR: float      = 100.0   # max energy = factor × size
     _SATIATION_FRACTION: float     = 0.9     # eat up to 90 % of max energy
     _REPRODUCE_FRACTION: float     = 0.8     # reproduce at 80 % of max energy
+    HERBIVORE_DEFAULT_DIET = 0.2
 
     def __init__(
         self,
@@ -241,7 +266,7 @@ class Herbivore(Animal):
         genome: Optional[Genome] = None,
     ) -> None:
         resolved_genome = genome if genome is not None else Genome(
-            size=1.0, speed=1.0, vision=1, metabolism=1.0, diet=0.2
+            size=1.0, speed=1.0, vision=1, metabolism=1.0, diet=self.HERBIVORE_DEFAULT_DIET
         )
         if energy is None:
             energy = self._MAX_ENERGY_FACTOR * 0.5 * resolved_genome.size
@@ -319,14 +344,12 @@ class Herbivore(Animal):
     def _hunt_animal_if_trait_carnivore(self, ecosystem: Ecosystem) -> Optional[Animal]:
         if ecosystem.api_version != "v2" or not self.is_carnivore_trait():
             return None
-        herbivore_satiation = self._MAX_ENERGY_FACTOR * self._SATIATION_FRACTION * self.genome.size
-        carnivore_satiation = Carnivore._MAX_ENERGY_FACTOR * Carnivore._SATIATION_FRACTION * self.genome.size
-        satiation = max(herbivore_satiation, carnivore_satiation)
+        satiation = self.trait_satiation_energy()
         if self.energy >= satiation:
             return None
         animals = [
             o for o in self._get_organisms_in_vision(ecosystem, Animal)
-            if o is not self and o.alive
+            if o is not self
         ]
         if not animals:
             return None
@@ -360,9 +383,7 @@ class Herbivore(Animal):
         # Genome is inherited with mutation — the core of natural selection.
         child_genome = self.genome.mutate(mutation_rate=0.05)
         child = Herbivore(child_x, child_y, energy=child_energy, genome=child_genome)
-        child.parent_id = self.agent_id
-        child.lineage_id = self.lineage_id if self.lineage_id is not None else self.agent_id
-        child.generation = self.generation + 1
+        child.inherit_lineage_from_parent(self)
         ecosystem.queue_add_organism(child)
         return True
 
@@ -378,6 +399,7 @@ class Carnivore(Animal):
     _MAX_ENERGY_FACTOR: float      = 150.0   # max energy = factor × size
     _SATIATION_FRACTION: float     = 0.9     # hunt up to 90 % of max energy
     _REPRODUCE_FRACTION: float     = 0.8     # reproduce at 80 % of max energy
+    CARNIVORE_DEFAULT_DIET = 0.8
 
     def __init__(
         self,
@@ -387,7 +409,7 @@ class Carnivore(Animal):
         genome: Optional[Genome] = None,
     ) -> None:
         resolved_genome = genome if genome is not None else Genome(
-            size=1.2, speed=1.3, vision=2, metabolism=1.1, diet=0.8
+            size=1.2, speed=1.3, vision=2, metabolism=1.1, diet=self.CARNIVORE_DEFAULT_DIET
         )
         if energy is None:
             energy = self._MAX_ENERGY_FACTOR * 0.5 * resolved_genome.size
@@ -433,7 +455,7 @@ class Carnivore(Animal):
         if ecosystem.api_version == "v2":
             prey_animals = [
                 o for o in self._get_organisms_in_vision(ecosystem, Animal)
-                if o is not self and o.alive
+                if o is not self
             ]
         else:
             prey_animals = self._get_organisms_in_vision(ecosystem, Herbivore)
@@ -449,7 +471,7 @@ class Carnivore(Animal):
     def _eat_plant_if_trait_herbivore(self, ecosystem: Ecosystem) -> Optional[Plant]:
         if ecosystem.api_version != "v2" or not self.is_herbivore_trait():
             return None
-        satiation = Herbivore._MAX_ENERGY_FACTOR * Herbivore._SATIATION_FRACTION * self.genome.size
+        satiation = self.trait_satiation_energy()
         if self.energy >= satiation:
             return None
         plants = self._get_organisms_in_vision(ecosystem, Plant)
@@ -480,8 +502,6 @@ class Carnivore(Animal):
 
         child_genome = self.genome.mutate(mutation_rate=0.05)
         child = Carnivore(child_x, child_y, energy=child_energy, genome=child_genome)
-        child.parent_id = self.agent_id
-        child.lineage_id = self.lineage_id if self.lineage_id is not None else self.agent_id
-        child.generation = self.generation + 1
+        child.inherit_lineage_from_parent(self)
         ecosystem.queue_add_organism(child)
         return True

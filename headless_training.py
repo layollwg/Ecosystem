@@ -5,7 +5,7 @@ import random
 from statistics import mean
 from dataclasses import dataclass, replace
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import config
 from ecosystem_core import EcosystemCore, RewardConfig
@@ -69,7 +69,7 @@ def _build_action_dict(
 
 
 def _build_reward_config(args: argparse.Namespace) -> Optional[RewardConfig]:
-    overrides: Dict[str, object] = {}
+    overrides: Dict[str, Any] = {}
     if args.living_penalty is not None:
         overrides["living_penalty"] = args.living_penalty
     if args.energy_delta_scale is not None:
@@ -89,6 +89,7 @@ def _build_reward_config(args: argparse.Namespace) -> Optional[RewardConfig]:
 
     if not overrides:
         return None
+    # args.api_version is validated by argparse choices in add_headless_args.
     base = RewardConfig.for_api_version(args.api_version)
     return replace(base, **overrides)
 

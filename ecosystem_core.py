@@ -48,8 +48,8 @@ class RewardConfig:
                 death_penalty=-5.0,
                 living_penalty=-0.01,
                 energy_delta_scale=0.1,
-                death_penalty_starvation=-5.0,
-                death_penalty_predation=-5.0,
+                death_penalty_starvation=None,
+                death_penalty_predation=None,
                 death_penalty_old_age=0.0,
                 include_agent_breakdown=False,
             )
@@ -88,6 +88,13 @@ class EcosystemCore:
     MIN_SPEED_NORMALIZER = 0.5
     # Shared observation normalization constant for animal energy channel.
     ENERGY_NORMALIZATION_BASE = 150.0
+    V1_OBSERVATION_CHANNELS = 5
+    V2_OBSERVATION_CHANNELS = 6
+    REPRODUCTION_MATURITY_AGE_RATIO = 0.2
+    REPRODUCTION_ENERGY_THRESHOLD = 0.6
+    REPRODUCTION_AGE_EXPONENT = 1.5
+    # For carnivore-vs-carnivore threat assessment, 1.1 means 10% size advantage.
+    PREDATOR_SIZE_THRESHOLD = 1.1
 
     def __init__(
         self,
@@ -671,8 +678,8 @@ class EcosystemCore:
         if occupant is self_animal:
             return 1.0
         if (
-            occupant.agent_id == self_animal.parent_id
-            or self_animal.agent_id == occupant.parent_id
+            (self_animal.parent_id is not None and occupant.agent_id == self_animal.parent_id)
+            or (occupant.parent_id is not None and self_animal.agent_id == occupant.parent_id)
         ):
             return 1.0
         if (
@@ -684,7 +691,7 @@ class EcosystemCore:
         return 0.0
 
     def _max_energy_from_trait(self, animal: Animal) -> float:
-        max_energy_factor = 100.0 if animal.is_herbivore_trait() else 150.0
+        max_energy_factor = animal.trait_max_energy_factor()
         return max(1.0, max_energy_factor * max(self.MIN_GENOME_SIZE_NORMALIZER, animal.genome.size))
 
     def _compute_scalar_state(self, animal: Animal, energy_norm: float, age_norm: float) -> List[float]:
@@ -692,13 +699,16 @@ class EcosystemCore:
         energy_ratio = min(1.0, max(0.0, animal.energy / max_energy))
         hunger_drive = 1.0 - energy_ratio
 
-        adult_ratio = 0.2
-        if age_norm < adult_ratio or energy_ratio < 0.6:
+        adult_ratio = self.REPRODUCTION_MATURITY_AGE_RATIO
+        energy_threshold = self.REPRODUCTION_ENERGY_THRESHOLD
+        if age_norm < adult_ratio or energy_ratio < energy_threshold:
             reproduction_urge = 0.0
         else:
             age_factor = min(1.0, (age_norm - adult_ratio) / (1.0 - adult_ratio))
-            energy_factor = min(1.0, (energy_ratio - 0.6) / 0.4)
-            reproduction_urge = min(1.0, (energy_factor ** 2) * (age_factor ** 1.5))
+            energy_factor = min(1.0, (energy_ratio - energy_threshold) / (1.0 - energy_threshold))
+            energy_term = energy_factor * energy_factor
+            age_term = age_factor ** self.REPRODUCTION_AGE_EXPONENT
+            reproduction_urge = min(1.0, energy_term * age_term)
 
         predator_density = self._predator_density(animal)
         low_energy_risk = 1.0 - energy_ratio
@@ -724,7 +734,7 @@ class EcosystemCore:
                 if occupant.is_carnivore_trait():
                     if animal.is_herbivore_trait():
                         predator += 1
-                    elif occupant.genome.size > animal.genome.size * 1.1:
+                    elif occupant.genome.size > animal.genome.size * self.PREDATOR_SIZE_THRESHOLD:
                         predator += 1
         if seen <= 0:
             return 0.0
@@ -733,7 +743,15 @@ class EcosystemCore:
     def _apply_growth_limiter_mask(self, tensor: ObservationTensor, age_norm: float) -> None:
         if age_norm >= self.VISION_MASK_AGE_RATIO:
             return
-        channel_count = len(tensor[0][0]) if tensor and tensor[0] else 5
+        channel_count = (
+            len(tensor[0][0])
+            if tensor and tensor[0]
+            else (
+                self.V1_OBSERVATION_CHANNELS
+                if self.api_version == "v1"
+                else self.V2_OBSERVATION_CHANNELS
+            )
+        )
         zero_obs = [0.0] * channel_count
         edge = 0
         size = len(tensor)
