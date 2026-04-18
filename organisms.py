@@ -147,8 +147,14 @@ class Animal(Organism, ABC):
     def _apply_terrain_movement_cost(self, ecosystem: Ecosystem, x: int, y: int) -> None:
         terrain = ecosystem.get_terrain(x, y)
         multiplier = movement_multiplier(terrain)
+        # Movement into water/mountain is blocked by ecosystem.can_move_to_terrain(),
+        # so multipliers here are expected to be finite for passable terrain only.
+        if multiplier == float("inf"):
+            return
         if multiplier <= 1.0:
             return
+        # Baseline per-tick energy is already deducted in update(); here we apply
+        # only the terrain delta above baseline (e.g. sand 1.2x => +20%).
         self.energy -= self.calculate_energy_cost() * (multiplier - 1.0)
 
     # ── Shared perception helper ──────────────────────────────────────────────

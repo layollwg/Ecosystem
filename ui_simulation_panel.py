@@ -238,12 +238,21 @@ class SimulationPanel(tk.Frame):
     def _terrain_fill(self, terrain: TerrainType) -> str:
         t = self._theme
         if terrain == TerrainType.WATER:
-            return t.get("terrain_water", "#3B82F6")
+            return t["terrain_water"]
         if terrain == TerrainType.SAND:
-            return t.get("terrain_sand", "#D6B16A")
+            return t["terrain_sand"]
         if terrain == TerrainType.MOUNTAIN:
-            return t.get("terrain_mountain", "#6B7280")
-        return t.get("terrain_dirt", t["empty_fill"])
+            return t["terrain_mountain"]
+        return t["terrain_dirt"]
+
+    def _terrain_name(self, terrain: TerrainType) -> str:
+        names = {
+            TerrainType.WATER: "Water",
+            TerrainType.SAND: "Sand",
+            TerrainType.DIRT: "Dirt",
+            TerrainType.MOUNTAIN: "Mountain",
+        }
+        return names.get(terrain, "Unknown")
 
     def _redraw_full_scene(self) -> None:
         t      = self._theme
@@ -322,7 +331,7 @@ class SimulationPanel(tk.Frame):
         occupant = eco.grid.get((gx, gy))
         t = self._theme
         terrain = eco.get_terrain(gx, gy)
-        terrain_name = terrain.name.title()
+        terrain_name = self._terrain_name(terrain)
         if occupant and occupant.alive:
             kind = type(occupant).__name__
             if isinstance(occupant, Plant):

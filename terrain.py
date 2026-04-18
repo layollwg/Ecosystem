@@ -61,12 +61,13 @@ def generate_terrain_grid(
     seed: int | None = None,
 ) -> Dict[Position, TerrainType]:
     resolved_seed = seed if seed is not None else random.randint(0, 10000)
+    effective_scale = scale if scale > 0 else 1.0
     terrain_grid: Dict[Position, TerrainType] = {}
 
     for x in range(grid_size):
         for y in range(grid_size):
-            nx = x / max(1.0, scale)
-            ny = y / max(1.0, scale)
+            nx = x / effective_scale
+            ny = y / effective_scale
             if noise is not None:
                 elevation = float(
                     noise.pnoise2(
@@ -96,10 +97,11 @@ def is_plant_habitable(terrain: TerrainType) -> bool:
 
 
 def movement_multiplier(terrain: TerrainType) -> float:
+    """Return terrain movement energy scale (finite) or infinity for impassable terrain."""
     if terrain == TerrainType.SAND:
         return 1.2
     if terrain == TerrainType.WATER:
-        return 5.0
+        return float("inf")
     if terrain == TerrainType.MOUNTAIN:
-        return 999.0
+        return float("inf")
     return 1.0

@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 import time
 import tkinter as tk
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar
 
 from organisms import Carnivore, Herbivore, Organism, Plant
 import config
@@ -100,14 +100,14 @@ class Ecosystem:
             self.organisms.append(plant)
             self.grid[(x, y)] = plant
 
+        available_land_positions = self._filter_unoccupied_positions(
+            available_land_positions
+        )
+
         for _ in range(num_herbivores):
             if not available_land_positions:
                 break
             x, y = available_land_positions.pop()
-            while (x, y) in self.grid:
-                if not available_land_positions:
-                    return
-                x, y = available_land_positions.pop()
             herbivore = Herbivore(x, y)
             self.organisms.append(herbivore)
             self.grid[(x, y)] = herbivore
@@ -116,15 +116,12 @@ class Ecosystem:
             if not available_land_positions:
                 break
             x, y = available_land_positions.pop()
-            while (x, y) in self.grid:
-                if not available_land_positions:
-                    return
-                x, y = available_land_positions.pop()
             carnivore = Carnivore(x, y)
             self.organisms.append(carnivore)
             self.grid[(x, y)] = carnivore
 
-    def _get_spawn_positions(self, predicate) -> List[Position]:
+    def _get_spawn_positions(self, predicate: Callable[[Position], bool]) -> List[Position]:
+        """Return all grid positions matching the provided predicate."""
         return [
             (x, y)
             for x in range(self.grid_size)
@@ -132,12 +129,9 @@ class Ecosystem:
             if predicate((x, y))
         ]
 
-    def _sample_unique_positions(self, count: int) -> List[Position]:
-        all_positions = [
-            (x, y) for x in range(self.grid_size) for y in range(self.grid_size)
-        ]
-        random.shuffle(all_positions)
-        return all_positions[:count]
+    def _filter_unoccupied_positions(self, positions: List[Position]) -> List[Position]:
+        """Return only positions that are currently not occupied by organisms."""
+        return [position for position in positions if position not in self.grid]
 
     def run(self, total_ticks: int) -> None:
         if self.window is None:
