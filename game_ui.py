@@ -32,7 +32,7 @@ class GameUI:
         self._root = tk.Tk()
         self._root.title("🌍  ECOSYSTEM SIMULATOR")
         self._root.minsize(_MIN_W, _MIN_H)
-        self._theme = Theme(is_dark=True)
+        self._theme = Theme(mode="nature")
         self._root.config(bg=self._theme["bg"])
         self._root.protocol("WM_DELETE_WINDOW", self._on_exit)
 
@@ -72,7 +72,15 @@ class GameUI:
             self._content,
             theme=self._theme,
             on_start=self._on_start_simulation,
+            on_theme_change=self._on_theme_change,
         ).pack(fill="both", expand=True)
+
+    def _on_theme_change(self, mode: str) -> None:
+        """Switch the active palette and rebuild the config panel."""
+        self._theme.set_mode(mode)
+        self._root.config(bg=self._theme["bg"])
+        self._content.config(bg=self._theme["bg"])
+        self._show_config_panel()
 
     def _show_simulation_panel(self) -> None:
         self._clear_content()
@@ -125,7 +133,7 @@ class GameUI:
             num_herbivores=params.get("herbivores", 30),
             num_carnivores=params.get("carnivores", 5),
             tick_delay=params.get("tick_delay", 0.10),
-            theme="dark" if self._theme.is_dark else "light",
+            theme=self._theme.mode,
         )
 
         self._show_simulation_panel()
