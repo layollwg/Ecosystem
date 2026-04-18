@@ -463,9 +463,8 @@ class EcosystemEnv(ParallelEnv):
         self,
         x: int,
         y: int,
-        occupied: Optional[Set[Position]] = None,
+        occupied: Set[Position],
     ) -> Optional[Position]:
-        occupied_positions = occupied if occupied is not None else self._occupied_positions
         candidates: List[Position] = []
         for dx in (-1, 0, 1):
             for dy in (-1, 0, 1):
@@ -474,7 +473,7 @@ class EcosystemEnv(ParallelEnv):
                 nx, ny = x + dx, y + dy
                 if not self._is_valid_target(nx, ny):
                     continue
-                if (nx, ny) in occupied_positions:
+                if (nx, ny) in occupied:
                     continue
                 candidates.append((nx, ny))
         if not candidates:

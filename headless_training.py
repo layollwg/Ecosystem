@@ -160,7 +160,10 @@ def _run_rllib_curriculum(args: argparse.Namespace) -> None:
                 "initial_plants": level.plants,
                 "max_steps": args.ticks,
             }
-            register_env(env_name, lambda cfg, _ec=env_config: _env_creator(_ec))
+            register_env(
+                env_name,
+                lambda cfg, _ec=env_config: _env_creator({**_ec, **cfg}),
+            )
 
             algo = _build_rllib_config(env_name, args).build()
             print(f"[无界面-RLlib] 开始 {level.name}")

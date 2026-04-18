@@ -215,8 +215,6 @@ class Ecosystem:
             plant = self._plant_objects.get(pos)
             if plant is None:
                 plant = Plant(pos[0], pos[1])
-            else:
-                plant.age += 1
             next_plants[pos] = plant
             self._grid[pos] = plant
             self._organisms.append(plant)
