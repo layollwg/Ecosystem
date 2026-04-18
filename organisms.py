@@ -30,6 +30,7 @@ class Organism(ABC):
         self.y = y
         self.symbol = symbol
         self.alive = True
+        self.agent_id = -1
         self.age = 0
         self.max_age = max_age
 
@@ -114,7 +115,8 @@ class Animal(Organism, ABC):
         vision_cost = 0.2 * (g.vision ** 1.5)
         return max(1.0, base_cost + speed_cost + vision_cost)
 
-    def update(self, ecosystem: Ecosystem) -> None:  # type: ignore[override]
+    def update_vitals(self, ecosystem: Ecosystem) -> None:
+        """Apply per-tick metabolism and aging without autonomous decisions."""
         self.energy -= self.calculate_energy_cost()
         if self.energy <= 0:
             ecosystem.queue_remove_organism(self)
@@ -124,6 +126,16 @@ class Animal(Organism, ABC):
         if not self.alive:
             return
 
+    def update(self, ecosystem: Ecosystem) -> None:  # type: ignore[override]
+        self.update_vitals(ecosystem)
+
+    def try_reproduce(self, ecosystem: Ecosystem) -> bool:
+        """Public reproduction hook for external controllers (e.g. RL policies)."""
+        reproduce_impl = getattr(self, "_try_reproduce", None)
+        if callable(reproduce_impl):
+            return bool(reproduce_impl(ecosystem))
+        return False
+
     # ── Movement ──────────────────────────────────────────────────────────────
 
     def move(self, ecosystem: Ecosystem) -> bool:
@@ -132,6 +144,10 @@ class Animal(Organism, ABC):
             return False
 
         new_x, new_y = random.choice(empty_cells)
+        return self._move_to(ecosystem, new_x, new_y)
+
+    def move_to(self, ecosystem: Ecosystem, new_x: int, new_y: int) -> bool:
+        """Move to a specific cell under external control, skipping autonomous action selection."""
         return self._move_to(ecosystem, new_x, new_y)
 
     def _move_to(self, ecosystem: Ecosystem, new_x: int, new_y: int) -> bool:
@@ -244,7 +260,7 @@ class Herbivore(Animal):
             self.energy += energy_gain
             self._move_to(ecosystem, plant.x, plant.y)
         else:
-            if not self._try_reproduce(ecosystem):
+            if not self.try_reproduce(ecosystem):
                 self.move(ecosystem)
 
     def _flee(self, ecosystem: Ecosystem) -> bool:
@@ -350,7 +366,7 @@ class Carnivore(Animal):
             self.energy += energy_gain
             self._move_to(ecosystem, herbivore.x, herbivore.y)
         else:
-            if not self._try_reproduce(ecosystem):
+            if not self.try_reproduce(ecosystem):
                 self.move(ecosystem)
 
     def _hunt(self, ecosystem: Ecosystem) -> Optional[Herbivore]:
