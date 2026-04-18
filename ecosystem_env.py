@@ -598,10 +598,17 @@ class EcosystemEnv(ParallelEnv):
             if species == self.SPECIES_RABBIT
             else len(self.available_foxes) > 0
         )
-        if (not pool_available) or (not self._can_reproduce(organism)) or (not self._has_birth_space(organism.x, organism.y)):
+        if not self._is_reproduction_allowed(organism, pool_available):
             mask[self.ACTION_REPRODUCE] = 0
 
         return mask
+
+    def _is_reproduction_allowed(self, organism: Animal, pool_available: bool) -> bool:
+        return (
+            pool_available
+            and self._can_reproduce(organism)
+            and self._has_birth_space(organism.x, organism.y)
+        )
 
     def _rebuild_position_indices(self) -> None:
         self._occupied_positions = set()

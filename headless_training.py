@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import random
 from dataclasses import dataclass
 from pathlib import Path
@@ -31,6 +32,7 @@ _PRESET_LABELS = {
     "balanced": "均衡",
     "intense": "激烈",
 }
+SINGLE_SPECIES_BALANCE_SCORE = 15.0
 
 
 @dataclass(frozen=True)
@@ -196,9 +198,9 @@ def _calc_balance(plants: int, herbivores: int, carnivores: int) -> float:
     if not counts:
         return 0.0
     if len(counts) == 1:
-        return 15.0
+        # Preserve historical single-species non-zero baseline for UI/readouts.
+        return SINGLE_SPECIES_BALANCE_SCORE
     total = sum(counts)
-    import math
 
     proportions = [value / total for value in counts]
     diversity = -sum(value * math.log(value) for value in proportions)
