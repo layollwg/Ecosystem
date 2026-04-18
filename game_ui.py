@@ -311,9 +311,17 @@ class GameUI:
                     if not action:
                         raise TypeError("unexpected empty tuple action from RLlib")
                     action = action[0]
-                if not isinstance(action, (int, float)):
+                if isinstance(action, bool):
+                    raise TypeError(f"unexpected boolean action from RLlib: {action!r}")
+                if isinstance(action, float):
+                    if not action.is_integer():
+                        raise TypeError(f"non-integer float action from RLlib: {action!r}")
+                    action = int(action)
+                elif not isinstance(action, int):
                     raise TypeError(f"unexpected action type: {type(action).__name__}, value={action!r}")
-                action_dict[public_agent_id] = int(action)
+                if not (0 <= action <= 5):
+                    raise ValueError(f"action out of range [0, 5]: {action}")
+                action_dict[public_agent_id] = action
         except Exception as exc:
             messagebox.showerror(
                 "模型推理失败",

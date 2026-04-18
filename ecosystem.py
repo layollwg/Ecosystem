@@ -15,6 +15,10 @@ MAX_RABBIT_POOL_CAP = 500
 MAX_FOX_POOL_CAP = 200
 RABBIT_POLICY_ID = "rabbit_policy"
 FOX_POLICY_ID = "fox_policy"
+SPECIES_POLICY_MAP = {
+    EcosystemEnv.SPECIES_RABBIT: RABBIT_POLICY_ID,
+    EcosystemEnv.SPECIES_FOX: FOX_POLICY_ID,
+}
 
 
 class Ecosystem:
@@ -187,7 +191,7 @@ class Ecosystem:
             if obs is None:
                 continue
             species = self._env.get_agent_species(env_agent_id)
-            policy_id = RABBIT_POLICY_ID if species == self._env.SPECIES_RABBIT else FOX_POLICY_ID
+            policy_id = SPECIES_POLICY_MAP.get(species, FOX_POLICY_ID)
             batch[public_id] = {
                 "species": species,
                 "policy_id": policy_id,
