@@ -11,6 +11,12 @@ import config
 from ecosystem_core import EcosystemCore
 from organisms import Animal, Carnivore, Herbivore
 
+_PRESET_LABELS = {
+    "stable": "稳定",
+    "balanced": "均衡",
+    "intense": "激烈",
+}
+
 
 @dataclass(frozen=True)
 class CurriculumLevel:
@@ -65,11 +71,12 @@ def _build_action_dict(
 def run_curriculum(args: argparse.Namespace) -> None:
     random.seed(args.seed)
     config.load_preset(args.preset)
+    preset_label = _PRESET_LABELS.get(args.preset, args.preset)
 
     checkpoint_dir = Path(args.checkpoint_dir)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"[无界面] 模式=课程训练 预设={args.preset} 网格={args.grid_size} 回合={args.episodes} 步数={args.ticks}")
+    print(f"[无界面] 模式=课程训练 预设={preset_label} 网格={args.grid_size} 回合={args.episodes} 步数={args.ticks}")
 
     for level in CURRICULUM_LEVELS:
         print(f"[无界面] 开始 {level.name}")
