@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import argparse
 import random
+from statistics import mean
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import config
 from ecosystem_core import EcosystemCore
@@ -40,7 +41,7 @@ CURRICULUM_LEVELS = (
 
 
 def _random_action() -> int:
-    return random.choice(list(EcosystemCore.ACTIONS))
+    return random.choice(EcosystemCore.ACTIONS)
 
 
 def _build_action_dict(
@@ -59,12 +60,6 @@ def _build_action_dict(
 
         action_dict[organism.agent_id] = _random_action()
     return action_dict
-
-
-def _mean(values: List[float]) -> float:
-    if not values:
-        return 0.0
-    return sum(values) / len(values)
 
 
 def run_curriculum(args: argparse.Namespace) -> None:
@@ -88,7 +83,7 @@ def run_curriculum(args: argparse.Namespace) -> None:
             observation_radius=args.observation_radius,
         )
 
-        level_rewards: List[float] = []
+        level_rewards: list[float] = []
 
         for episode in range(1, args.episodes + 1):
             env.reset()
@@ -107,8 +102,8 @@ def run_curriculum(args: argparse.Namespace) -> None:
                 print(
                     f"[headless] {level.name} episode={episode} "
                     f"reward={cumulative_reward:.2f} "
-                    f"mean_reward={_mean(level_rewards):.2f} "
-                    f"alive={info.get('agent_species', {}) and len(info.get('agent_species', {})) or 0}"
+                    f"mean_reward={(mean(level_rewards) if level_rewards else 0.0):.2f} "
+                    f"alive={len(info.get('agent_species', {}))}"
                 )
 
             if args.checkpoint_every > 0 and episode % args.checkpoint_every == 0:
@@ -118,7 +113,7 @@ def run_curriculum(args: argparse.Namespace) -> None:
                     metadata={
                         "level": level.name,
                         "episode": episode,
-                        "mean_reward": _mean(level_rewards),
+                        "mean_reward": mean(level_rewards) if level_rewards else 0.0,
                         "preset": args.preset,
                         "grid_size": args.grid_size,
                     },
@@ -126,17 +121,18 @@ def run_curriculum(args: argparse.Namespace) -> None:
 
         print(
             f"[headless] done {level.name} "
-            f"episodes={args.episodes} mean_reward={_mean(level_rewards):.2f}"
+            f"episodes={args.episodes} mean_reward={(mean(level_rewards) if level_rewards else 0.0):.2f}"
         )
 
 
 def add_headless_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--preset", default="stable", choices=list(config.PRESETS.keys()))
-    parser.add_argument("--grid-size", type=int, default=25)
-    parser.add_argument("--ticks", type=int, default=300)
-    parser.add_argument("--episodes", type=int, default=10)
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--observation-radius", type=int, default=2)
-    parser.add_argument("--log-interval", type=int, default=1)
-    parser.add_argument("--checkpoint-every", type=int, default=5)
-    parser.add_argument("--checkpoint-dir", default="./checkpoints")
+    group = parser.add_argument_group("headless mode options")
+    group.add_argument("--preset", default="stable", choices=list(config.PRESETS.keys()))
+    group.add_argument("--grid-size", type=int, default=25)
+    group.add_argument("--ticks", type=int, default=300)
+    group.add_argument("--episodes", type=int, default=10)
+    group.add_argument("--seed", type=int, default=42)
+    group.add_argument("--observation-radius", type=int, default=2)
+    group.add_argument("--log-interval", type=int, default=1)
+    group.add_argument("--checkpoint-every", type=int, default=5)
+    group.add_argument("--checkpoint-dir", default="./checkpoints")

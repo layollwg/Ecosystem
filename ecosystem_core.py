@@ -49,6 +49,20 @@ class EcosystemCore:
         ACTION_RIGHT,
         ACTION_REPRODUCE,
     )
+    # Growth-limiter stages:
+    # - Very young: highest action failure probability.
+    # - Young: reduced failure probability.
+    # - Vision edge mask: fades slightly after "very young" to smooth transition.
+    VERY_YOUNG_AGE_RATIO = 0.25
+    YOUNG_AGE_RATIO = 0.4
+    VISION_MASK_AGE_RATIO = 0.3
+    VERY_YOUNG_ACTION_FAIL_PROB = 0.35
+    YOUNG_ACTION_FAIL_PROB = 0.15
+    # Lower bounds to avoid unstable normalization / division near zero.
+    MIN_GENOME_SIZE_NORMALIZER = 0.5
+    MIN_SPEED_NORMALIZER = 0.5
+    # Shared observation normalization constant for animal energy channel.
+    ENERGY_NORMALIZATION_BASE = 150.0
 
     def __init__(
         self,
@@ -145,7 +159,7 @@ class EcosystemCore:
                 continue
 
             if isinstance(organism, Animal) and organism.agent_id in controlled_ids:
-                Animal.update(organism, self)
+                organism.update_vitals(self)
                 if organism.alive:
                     action = action_dict.get(organism.agent_id, self.ACTION_STAY)
                     self._apply_external_action(organism, action)
@@ -275,12 +289,25 @@ class EcosystemCore:
     def _reward(self, organism: Animal, amount: float) -> None:
         self._step_rewards[organism.agent_id] = self._step_rewards.get(organism.agent_id, 0.0) + amount
 
+    def _normalize_energy(self, animal: Animal) -> float:
+        normalized = animal.energy / (
+            self.ENERGY_NORMALIZATION_BASE
+            * max(self.MIN_GENOME_SIZE_NORMALIZER, animal.genome.size)
+        )
+        return min(1.0, max(0.0, normalized))
+
+    def _add_death_penalty(self, animal: Animal) -> None:
+        self._step_rewards[animal.agent_id] = (
+            self._step_rewards.get(animal.agent_id, 0.0)
+            + self.reward_config.death_penalty
+        )
+
     def _action_failure_probability(self, animal: Animal) -> float:
-        age_ratio = animal.age / max(1, animal.max_age)
-        if age_ratio < 0.25:
-            return 0.35
-        if age_ratio < 0.4:
-            return 0.15
+        age_ratio = 1.0 if animal.max_age <= 0 else animal.age / animal.max_age
+        if age_ratio < self.VERY_YOUNG_AGE_RATIO:
+            return self.VERY_YOUNG_ACTION_FAIL_PROB
+        if age_ratio < self.YOUNG_AGE_RATIO:
+            return self.YOUNG_ACTION_FAIL_PROB
         return 0.0
 
     def _apply_external_action(self, animal: Animal, action: int) -> None:
@@ -295,8 +322,7 @@ class EcosystemCore:
             return
 
         if action == self.ACTION_REPRODUCE:
-            reproduce = getattr(animal, "_try_reproduce", None)
-            if callable(reproduce) and reproduce(self):
+            if animal.try_reproduce(self):
                 self._reward(animal, self.reward_config.reproduce_success)
             else:
                 self._reward(animal, self.reward_config.failed_reproduce)
@@ -329,7 +355,13 @@ class EcosystemCore:
 
         if isinstance(animal, Herbivore) and isinstance(occupant, Plant):
             self.queue_remove_organism(occupant)
-            animal.energy += config.get("HERBIVORE_ENERGY_GAIN") / max(0.5, animal.genome.speed)
+            # Faster herbivores burn more baseline energy, so feeding conversion
+            # is intentionally slightly lower to preserve a speed-vs-efficiency
+            # trade-off in policy learning (balance design).
+            animal.energy += config.get("HERBIVORE_ENERGY_GAIN") / max(
+                self.MIN_SPEED_NORMALIZER,
+                animal.genome.speed,
+            )
             self.move_organism(animal, target_x, target_y)
             self._reward(animal, self.reward_config.eat_success)
             return
@@ -345,7 +377,7 @@ class EcosystemCore:
             self._reward(animal, self.reward_config.invalid_collision)
             return
 
-        if animal._move_to(self, target_x, target_y):
+        if animal.move_to(self, target_x, target_y):
             self._reward(animal, self.reward_config.move_cost)
         else:
             self._reward(animal, self.reward_config.invalid_collision)
@@ -427,8 +459,12 @@ class EcosystemCore:
         radius = self.observation_radius
         size = radius * 2 + 1
 
-        energy_norm = min(1.0, max(0.0, animal.energy / (150.0 * max(0.5, animal.genome.size))))
-        age_norm = min(1.0, max(0.0, animal.age / max(1, animal.max_age)))
+        energy_norm = self._normalize_energy(animal)
+        age_norm = (
+            1.0
+            if animal.max_age <= 0
+            else min(1.0, max(0.0, animal.age / animal.max_age))
+        )
 
         tensor: ObservationTensor = []
         for dy in range(-radius, radius + 1):
@@ -456,16 +492,17 @@ class EcosystemCore:
         return tensor
 
     def _apply_growth_limiter_mask(self, tensor: ObservationTensor, age_norm: float) -> None:
-        if age_norm >= 0.3:
+        if age_norm >= self.VISION_MASK_AGE_RATIO:
             return
+        zero_obs = [0.0] * 5
         edge = 0
         size = len(tensor)
         last = size - 1
         for i in range(size):
-            tensor[edge][i] = [0.0] * len(tensor[edge][i])
-            tensor[last][i] = [0.0] * len(tensor[last][i])
-            tensor[i][edge] = [0.0] * len(tensor[i][edge])
-            tensor[i][last] = [0.0] * len(tensor[i][last])
+            tensor[edge][i] = zero_obs[:]
+            tensor[last][i] = zero_obs[:]
+            tensor[i][edge] = zero_obs[:]
+            tensor[i][last] = zero_obs[:]
 
     # ── Public helpers used by organisms / UI ─────────────────────────────────
 
@@ -528,7 +565,7 @@ class EcosystemCore:
         self._pending_removals.append(organism)
 
         if isinstance(organism, Animal):
-            self._step_rewards[organism.agent_id] = self._step_rewards.get(organism.agent_id, 0.0) + self.reward_config.death_penalty
+            self._add_death_penalty(organism)
 
     def get_terrain(self, x: int, y: int) -> TerrainType:
         return self.terrain_grid.get((x, y), TerrainType.DIRT)
