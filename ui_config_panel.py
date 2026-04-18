@@ -88,7 +88,7 @@ class ConfigPanel(tk.Frame):
         hdr.pack(fill="x")
         tk.Label(
             hdr,
-            text="🌍  ECOSYSTEM SIMULATOR",
+            text="🌍 生态系统模拟器",
             font=(_UI_FONT, 22, "bold"),
             bg=t.get("header_bg", t["bg"]),
             fg=t.get("fg_accent", t["fg"]),
@@ -96,7 +96,7 @@ class ConfigPanel(tk.Frame):
         ).pack()
         tk.Label(
             hdr,
-            text="Configure your simulation parameters then press Start",
+            text="先配置模拟参数，再点击“开始模拟”",
             font=(_UI_FONT, 11),
             bg=t.get("header_bg", t["bg"]),
             fg=t.get("fg_secondary", t["fg"]),
@@ -125,25 +125,25 @@ class ConfigPanel(tk.Frame):
         self._grid_size_var = tk.IntVar(value=20)
         self._total_ticks_var = tk.IntVar(value=500)
         self._tick_delay_var = tk.DoubleVar(value=0.10)
-        gen = self._card(left, "⚙️  General Settings")
-        self._add_int_slider(gen, "Grid Size", self._grid_size_var, 10, 50)
-        self._add_int_slider(gen, "Total Ticks", self._total_ticks_var, 100, 2000, step=50)
-        self._add_float_slider(gen, "Tick Delay (s)", self._tick_delay_var, 0.0, 1.0, step=0.05)
+        gen = self._card(left, "⚙️  通用设置")
+        self._add_int_slider(gen, "网格尺寸", self._grid_size_var, 10, 50)
+        self._add_int_slider(gen, "总 Tick 数", self._total_ticks_var, 100, 2000, step=50)
+        self._add_float_slider(gen, "Tick 延迟（秒）", self._tick_delay_var, 0.0, 1.0, step=0.05)
 
         # ── Plants ────────────────────────────────────────────────────────────
         self._plants_var = tk.IntVar(value=80)
-        plant_card = self._card(left, "🌿  Plants")
-        self._add_int_slider(plant_card, "Initial Count", self._plants_var, 5, 300)
+        plant_card = self._card(left, "🌿  植物")
+        self._add_int_slider(plant_card, "初始数量", self._plants_var, 5, 300)
 
         # ── Herbivores ────────────────────────────────────────────────────────
         self._herbivores_var = tk.IntVar(value=30)
-        herb_card = self._card(right, "🦌  Herbivores")
-        self._add_int_slider(herb_card, "Initial Count", self._herbivores_var, 1, 150)
+        herb_card = self._card(right, "🦌  草食动物")
+        self._add_int_slider(herb_card, "初始数量", self._herbivores_var, 1, 150)
 
         # ── Carnivores ────────────────────────────────────────────────────────
         self._carnivores_var = tk.IntVar(value=5)
-        carn_card = self._card(right, "🦁  Carnivores")
-        self._add_int_slider(carn_card, "Initial Count", self._carnivores_var, 1, 50)
+        carn_card = self._card(right, "🦁  肉食动物")
+        self._add_int_slider(carn_card, "初始数量", self._carnivores_var, 1, 50)
 
         # ── Buttons ───────────────────────────────────────────────────────────
         btn_row = tk.Frame(parent, bg=t["bg"])
@@ -151,7 +151,7 @@ class ConfigPanel(tk.Frame):
 
         tk.Button(
             btn_row,
-            text="🔄  Reset to Defaults",
+            text="🔄  恢复默认",
             font=(_UI_FONT, 11),
             bg=t["panel_bg"],
             fg=t["fg"],
@@ -163,7 +163,7 @@ class ConfigPanel(tk.Frame):
 
         tk.Button(
             btn_row,
-            text="▶  Start Simulation",
+            text="▶  开始模拟",
             font=(_UI_FONT, 13, "bold"),
             bg=t["button_bg"],
             fg=t["button_fg"],
@@ -177,15 +177,15 @@ class ConfigPanel(tk.Frame):
 
     def _build_theme_selector(self, parent: tk.Widget) -> None:
         t = self._theme
-        card = self._card(parent, "🎨  Theme")
+        card = self._card(parent, "🎨  主题")
 
         btn_row = tk.Frame(card, bg=t["card_bg"])
         btn_row.pack(fill="x", pady=(0, 4))
 
         _theme_options: List[tuple] = [
-            ("nature", "🌿 Nature"),
-            ("dark",   "🌑 Dark"),
-            ("light",  "☀️ Light"),
+            ("nature", "🌿 自然"),
+            ("dark",   "🌑 暗色"),
+            ("light",  "☀️ 亮色"),
         ]
 
         self._theme_btn_refs = []
@@ -211,15 +211,15 @@ class ConfigPanel(tk.Frame):
 
     def _build_presets(self, parent: tk.Widget) -> None:
         t = self._theme
-        card = self._card(parent, "⭐  Quick Presets")
+        card = self._card(parent, "⭐  快速预设")
 
         btn_row = tk.Frame(card, bg=t["card_bg"])
         btn_row.pack(fill="x", pady=(0, 4))
 
         _preset_styles: Dict[str, tuple] = {
-            "stable":   ("⭐ Stable",   t.get("stat_positive", t["fg"])),
-            "balanced": ("⚔️ Balanced", t.get("fg_accent",     t["fg"])),
-            "intense":  ("🔥 Intense",  t.get("stat_negative", t["fg"])),
+            "stable":   ("⭐ 稳定",   t.get("stat_positive", t["fg"])),
+            "balanced": ("⚔️ 均衡", t.get("fg_accent",     t["fg"])),
+            "intense":  ("🔥 激烈",  t.get("stat_negative", t["fg"])),
         }
 
         self._preset_btn_refs = []
@@ -369,10 +369,10 @@ class ConfigPanel(tk.Frame):
         capacity = params["grid_size"] ** 2
         if total_orgs > capacity:
             messagebox.showerror(
-                "Invalid Configuration",
-                f"Total organisms ({total_orgs}) exceeds grid capacity "
-                f"({capacity} cells for a {params['grid_size']}×{params['grid_size']} grid).\n\n"
-                "Reduce organism counts or increase the grid size.",
+                "配置无效",
+                f"生物总数（{total_orgs}）超过网格容量 "
+                f"（{params['grid_size']}×{params['grid_size']} 网格共 {capacity} 格）。\n\n"
+                "请减少生物数量或增大网格尺寸。",
             )
             return
         self._on_start(params)

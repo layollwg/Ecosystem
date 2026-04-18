@@ -30,7 +30,7 @@ class GameUI:
     def __init__(self) -> None:
         apply_windows_dpi_awareness()
         self._root = tk.Tk()
-        self._root.title("🌍  ECOSYSTEM SIMULATOR")
+        self._root.title("🌍 生态系统模拟器")
         self._root.minsize(_MIN_W, _MIN_H)
         self._theme = Theme(mode="nature")
         self._root.config(bg=self._theme["bg"])
@@ -151,7 +151,7 @@ class GameUI:
         if self._after_id is not None:
             self._root.after_cancel(self._after_id)
             self._after_id = None
-        self._show_result_panel("Simulation stopped by user.")
+        self._show_result_panel("模拟已由用户停止。")
 
     def _on_exit(self) -> None:
         """Close the application."""
@@ -179,10 +179,10 @@ class GameUI:
 
         # Termination conditions
         if not eco.organisms:
-            self._finish_simulation("All organisms have perished.")
+            self._finish_simulation("所有生物已灭绝。")
             return
         if eco.tick_count >= self._total_ticks:
-            self._finish_simulation("Simulation complete.")
+            self._finish_simulation("模拟完成。")
             return
 
         # Advance by one step
@@ -242,10 +242,10 @@ class GameUI:
 
         # Check termination conditions before stepping
         if not eco.organisms:
-            self._finish_simulation("All organisms have perished.")
+            self._finish_simulation("所有生物已灭绝。")
             return
         if eco.tick_count >= self._total_ticks:
-            self._finish_simulation("Simulation complete.")
+            self._finish_simulation("模拟完成。")
             return
 
         # Advance exactly one tick
@@ -268,8 +268,8 @@ class GameUI:
             return
         fname = filedialog.asksaveasfilename(
             defaultextension=".csv",
-            filetypes=[("CSV files", "*.csv"), ("All files", "*.*")],
-            title="Export population data as CSV",
+            filetypes=[("CSV 文件", "*.csv"), ("所有文件", "*.*")],
+            title="导出种群数据为 CSV",
         )
         if not fname:
             return
@@ -280,17 +280,17 @@ class GameUI:
         }
         try:
             export_to_csv(history, fname)
-            messagebox.showinfo("Export", f"CSV saved to:\n{os.path.basename(fname)}")
+            messagebox.showinfo("导出成功", f"CSV 已保存到：\n{os.path.basename(fname)}")
         except OSError as exc:
-            messagebox.showerror("Export Error", str(exc))
+            messagebox.showerror("导出失败", str(exc))
 
     def _on_export_json(self) -> None:
         if self._eco is None:
             return
         fname = filedialog.asksaveasfilename(
             defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")],
-            title="Export simulation data as JSON",
+            filetypes=[("JSON 文件", "*.json"), ("所有文件", "*.*")],
+            title="导出模拟数据为 JSON",
         )
         if not fname:
             return
@@ -308,6 +308,6 @@ class GameUI:
         }
         try:
             export_to_json(history, metadata, fname)
-            messagebox.showinfo("Export", f"JSON saved to:\n{os.path.basename(fname)}")
+            messagebox.showinfo("导出成功", f"JSON 已保存到：\n{os.path.basename(fname)}")
         except OSError as exc:
-            messagebox.showerror("Export Error", str(exc))
+            messagebox.showerror("导出失败", str(exc))
