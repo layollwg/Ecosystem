@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from collections import deque
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 from gymnasium import spaces
@@ -26,6 +26,14 @@ class EcosystemEnv(ParallelEnv):
     ACTION_RIGHT = 3
     ACTION_STAY = 4
     ACTION_REPRODUCE = 5
+    MIN_SPEED_DIVISOR = 0.5
+    HERBIVORE_MAX_ENERGY_FACTOR = 100.0
+    CARNIVORE_MAX_ENERGY_FACTOR = 150.0
+    REPRODUCE_FRACTION = 0.8
+    MUTATION_RATE = 0.05
+    PARENT_POST_REPRODUCE_ENERGY_RATIO = 0.6
+    SPECIES_RABBIT = "rabbit"
+    SPECIES_FOX = "fox"
 
     def __init__(
         self,
@@ -60,7 +68,7 @@ class EcosystemEnv(ParallelEnv):
 
         self.agent_to_object: Dict[str, Animal] = {}
         self.terrain_grid: Dict[Position, TerrainType] = {}
-        self.plants: set[Position] = set()
+        self.plants: Set[Position] = set()
 
         self._step_count = 0
         self._rng = random.Random()
@@ -106,8 +114,8 @@ class EcosystemEnv(ParallelEnv):
         self.terrain_grid = generate_terrain_grid(self.grid_size)
 
         self._spawn_initial_plants()
-        self._spawn_initial_animals("rabbit", self.initial_rabbits)
-        self._spawn_initial_animals("fox", self.initial_foxes)
+        self._spawn_initial_animals(self.SPECIES_RABBIT, self.initial_rabbits)
+        self._spawn_initial_animals(self.SPECIES_FOX, self.initial_foxes)
 
         observations = {agent_id: self._get_obs(agent_id) for agent_id in self.agents}
         infos = {
@@ -145,11 +153,14 @@ class EcosystemEnv(ParallelEnv):
 
             desired_positions[agent_id] = target
 
-        contenders: Dict[Tuple[str, Position], List[str]] = {}
+        collision_by_species_and_position: Dict[Tuple[str, Position], List[str]] = {}
         for agent_id, target in desired_positions.items():
-            contenders.setdefault((self._species_of(agent_id), target), []).append(agent_id)
+            collision_by_species_and_position.setdefault(
+                (self._species_of(agent_id), target),
+                [],
+            ).append(agent_id)
 
-        for (species, target), ids in contenders.items():
+        for (species, _), ids in collision_by_species_and_position.items():
             if len(ids) <= 1:
                 continue
             winner = self._rng.choice(ids)
@@ -165,14 +176,14 @@ class EcosystemEnv(ParallelEnv):
             organism = self.agent_to_object[agent_id]
             organism.x, organism.y = target
 
-        eaten_rabbits: set[str] = set()
+        eaten_rabbits: Set[str] = set()
 
         position_to_rabbits: Dict[Position, List[str]] = {}
         position_to_foxes: Dict[Position, List[str]] = {}
         for agent_id in current_agents:
             organism = self.agent_to_object[agent_id]
             pos = (organism.x, organism.y)
-            if self._species_of(agent_id) == "rabbit":
+            if self._species_of(agent_id) == self.SPECIES_RABBIT:
                 position_to_rabbits.setdefault(pos, []).append(agent_id)
             else:
                 position_to_foxes.setdefault(pos, []).append(agent_id)
@@ -192,13 +203,16 @@ class EcosystemEnv(ParallelEnv):
         for agent_id in current_agents:
             if agent_id in eaten_rabbits:
                 continue
-            if self._species_of(agent_id) != "rabbit":
+            if self._species_of(agent_id) != self.SPECIES_RABBIT:
                 continue
             rabbit = self.agent_to_object[agent_id]
             pos = (rabbit.x, rabbit.y)
             if pos in self.plants:
                 self.plants.remove(pos)
-                rabbit.energy += config.get("HERBIVORE_ENERGY_GAIN") / max(0.5, rabbit.genome.speed)
+                rabbit.energy += config.get("HERBIVORE_ENERGY_GAIN") / max(
+                    self.MIN_SPEED_DIVISOR,
+                    rabbit.genome.speed,
+                )
                 rewards[agent_id] += 1.0
 
         for agent_id in current_agents:
@@ -223,12 +237,12 @@ class EcosystemEnv(ParallelEnv):
             if birth_pos is None:
                 continue
 
-            child_genome = organism.genome.mutate(mutation_rate=0.05)
+            child_genome = organism.genome.mutate(mutation_rate=self.MUTATION_RATE)
             child_id = self._spawn_agent(species, birth_pos[0], birth_pos[1], genome=child_genome)
             if child_id is None:
                 continue
 
-            organism.energy *= 0.6
+            organism.energy *= self.PARENT_POST_REPRODUCE_ENERGY_RATIO
             rewards[agent_id] += 5.0
             infos[agent_id]["spawned"] = child_id
 
@@ -331,7 +345,11 @@ class EcosystemEnv(ParallelEnv):
 
         for agent_id in self.agents:
             organism = self.agent_to_object[agent_id]
-            color = "#f97316" if self._species_of(agent_id) == "fox" else "#f8fafc"
+            color = (
+                "#f97316"
+                if self._species_of(agent_id) == self.SPECIES_FOX
+                else "#f8fafc"
+            )
             x0 = organism.x * self._cell_px + 1
             y0 = organism.y * self._cell_px + 1
             x1 = x0 + self._cell_px - 2
@@ -373,14 +391,18 @@ class EcosystemEnv(ParallelEnv):
         y: int,
         genome=None,
     ) -> Optional[str]:
-        queue = self.available_rabbits if species == "rabbit" else self.available_foxes
+        queue = (
+            self.available_rabbits
+            if species == self.SPECIES_RABBIT
+            else self.available_foxes
+        )
         if not queue:
             return None
 
         new_id = queue.popleft()
         self.agent_generations[new_id] += 1
 
-        if species == "rabbit":
+        if species == self.SPECIES_RABBIT:
             organism = Herbivore(x, y, genome=genome)
         else:
             organism = Carnivore(x, y, genome=genome)
@@ -390,7 +412,11 @@ class EcosystemEnv(ParallelEnv):
         return new_id
 
     def _kill_agent(self, agent_id: str) -> None:
-        queue = self.available_rabbits if self._species_of(agent_id) == "rabbit" else self.available_foxes
+        queue = (
+            self.available_rabbits
+            if self._species_of(agent_id) == self.SPECIES_RABBIT
+            else self.available_foxes
+        )
         queue.append(agent_id)
         if agent_id in self.agent_to_object:
             del self.agent_to_object[agent_id]
@@ -427,7 +453,8 @@ class EcosystemEnv(ParallelEnv):
         return self._rng.choice(candidates)
 
     def _regrow_plants(self) -> None:
-        if self._rng.random() > config.get_plant_reproduction_chance(self._step_count):
+        growth_chance = config.get_plant_reproduction_chance(self._step_count)
+        if self._rng.random() >= growth_chance:
             return
 
         occupied = {(self.agent_to_object[a].x, self.agent_to_object[a].y) for a in self.agents}
@@ -457,12 +484,12 @@ class EcosystemEnv(ParallelEnv):
         rabbit_positions = {
             (self.agent_to_object[a].x, self.agent_to_object[a].y)
             for a in self.agents
-            if self._species_of(a) == "rabbit"
+            if self._species_of(a) == self.SPECIES_RABBIT
         }
         fox_positions = {
             (self.agent_to_object[a].x, self.agent_to_object[a].y)
             for a in self.agents
-            if self._species_of(a) == "fox"
+            if self._species_of(a) == self.SPECIES_FOX
         }
 
         for iy, dy in enumerate(range(-radius, radius + 1)):
@@ -493,22 +520,34 @@ class EcosystemEnv(ParallelEnv):
 
     def _normalized_energy(self, organism: Animal) -> float:
         if isinstance(organism, Herbivore):
-            max_energy = Herbivore._MAX_ENERGY_FACTOR * organism.genome.size
+            max_energy = self.HERBIVORE_MAX_ENERGY_FACTOR * organism.genome.size
         else:
-            max_energy = Carnivore._MAX_ENERGY_FACTOR * organism.genome.size
+            max_energy = self.CARNIVORE_MAX_ENERGY_FACTOR * organism.genome.size
         if max_energy <= 0:
             return 0.0
         return float(np.clip(organism.energy / max_energy, 0.0, 1.0))
 
     def _can_reproduce(self, organism: Animal) -> bool:
         if isinstance(organism, Herbivore):
-            threshold = Herbivore._MAX_ENERGY_FACTOR * Herbivore._REPRODUCE_FRACTION * organism.genome.size
+            threshold = (
+                self.HERBIVORE_MAX_ENERGY_FACTOR
+                * self.REPRODUCE_FRACTION
+                * organism.genome.size
+            )
             return organism.energy > threshold
-        threshold = Carnivore._MAX_ENERGY_FACTOR * Carnivore._REPRODUCE_FRACTION * organism.genome.size
+        threshold = (
+            self.CARNIVORE_MAX_ENERGY_FACTOR
+            * self.REPRODUCE_FRACTION
+            * organism.genome.size
+        )
         return organism.energy > threshold
 
     def _species_of(self, agent_id: str) -> str:
-        return "rabbit" if agent_id.startswith("rabbit_") else "fox"
+        return (
+            self.SPECIES_RABBIT
+            if agent_id.startswith(f"{self.SPECIES_RABBIT}_")
+            else self.SPECIES_FOX
+        )
 
     def _action_to_delta(self, action: int) -> Tuple[int, int]:
         if action == self.ACTION_UP:
@@ -541,5 +580,9 @@ class EcosystemEnv(ParallelEnv):
             image[y, x] = (34, 197, 94)
         for agent_id in self.agents:
             organism = self.agent_to_object[agent_id]
-            image[organism.y, organism.x] = (249, 115, 22) if self._species_of(agent_id) == "fox" else (241, 245, 249)
+            image[organism.y, organism.x] = (
+                (249, 115, 22)
+                if self._species_of(agent_id) == self.SPECIES_FOX
+                else (241, 245, 249)
+            )
         return image
