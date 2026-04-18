@@ -208,8 +208,8 @@ class ResultPanel(tk.Frame):
 
         for label, key, init_key, fg_key in [
             ("🌿 Plants",     "plant_count",    "init_plants",     "text_plant"),
-            ("🐇 Herbivores", "herbivore_count", "init_herbivores", "text_herbivore"),
-            ("🐺 Carnivores", "carnivore_count", "init_carnivores", "text_carnivore"),
+            ("🦌 Herbivores", "herbivore_count", "init_herbivores", "text_herbivore"),
+            ("🦁 Carnivores", "carnivore_count", "init_carnivores", "text_carnivore"),
         ]:
             final = stats.get(key, 0)
             initial = stats.get(init_key, "?")

@@ -137,12 +137,12 @@ class ConfigPanel(tk.Frame):
 
         # ── Herbivores ────────────────────────────────────────────────────────
         self._herbivores_var = tk.IntVar(value=30)
-        herb_card = self._card(right, "🐇  Herbivores")
+        herb_card = self._card(right, "🦌  Herbivores")
         self._add_int_slider(herb_card, "Initial Count", self._herbivores_var, 1, 150)
 
         # ── Carnivores ────────────────────────────────────────────────────────
         self._carnivores_var = tk.IntVar(value=5)
-        carn_card = self._card(right, "🐺  Carnivores")
+        carn_card = self._card(right, "🦁  Carnivores")
         self._add_int_slider(carn_card, "Initial Count", self._carnivores_var, 1, 50)
 
         # ── Buttons ───────────────────────────────────────────────────────────
