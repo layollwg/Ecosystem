@@ -7,6 +7,12 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
 
 from organisms import Carnivore, Herbivore, Organism, Plant
 import config
+from terrain import (
+    TerrainType,
+    generate_terrain_grid,
+    is_land_passable,
+    is_plant_habitable,
+)
 
 TOrganism = TypeVar("TOrganism", bound=Organism)
 Position = Tuple[int, int]
@@ -31,6 +37,7 @@ class Ecosystem:
         self.tick_count = 0
         self.organisms: List[Organism] = []
         self.grid: Dict[Position, Organism] = {}
+        self.terrain_grid: Dict[Position, TerrainType] = {}
         self._pending_additions: List[Organism] = []
         self._pending_removals: List[Organism] = []
 
@@ -64,32 +71,66 @@ class Ecosystem:
         self.deaths_this_tick: int = 0
         self._last_tick_ms: float = 0.0
 
+        self._generate_terrain()
         self._populate_initial_organisms(num_plants, num_herbivores, num_carnivores)
+
+    def _generate_terrain(self) -> None:
+        self.terrain_grid = generate_terrain_grid(self.grid_size)
 
     def _populate_initial_organisms(
         self, num_plants: int, num_herbivores: int, num_carnivores: int
     ) -> None:
-        positions = self._sample_unique_positions(
-            num_plants + num_herbivores + num_carnivores
+        available_plant_positions = self._get_spawn_positions(
+            lambda p: self.get_terrain(*p) == TerrainType.DIRT
+        )
+        available_land_positions = self._get_spawn_positions(
+            lambda p: is_land_passable(self.get_terrain(*p))
         )
 
+        random.shuffle(available_plant_positions)
+        random.shuffle(available_land_positions)
+
         for _ in range(num_plants):
-            x, y = positions.pop()
+            if not available_plant_positions:
+                break
+            x, y = available_plant_positions.pop()
+            if (x, y) in self.grid:
+                continue
             plant = Plant(x, y)
             self.organisms.append(plant)
             self.grid[(x, y)] = plant
 
         for _ in range(num_herbivores):
-            x, y = positions.pop()
+            if not available_land_positions:
+                break
+            x, y = available_land_positions.pop()
+            while (x, y) in self.grid:
+                if not available_land_positions:
+                    return
+                x, y = available_land_positions.pop()
             herbivore = Herbivore(x, y)
             self.organisms.append(herbivore)
             self.grid[(x, y)] = herbivore
 
         for _ in range(num_carnivores):
-            x, y = positions.pop()
+            if not available_land_positions:
+                break
+            x, y = available_land_positions.pop()
+            while (x, y) in self.grid:
+                if not available_land_positions:
+                    return
+                x, y = available_land_positions.pop()
             carnivore = Carnivore(x, y)
             self.organisms.append(carnivore)
             self.grid[(x, y)] = carnivore
+
+    def _get_spawn_positions(self, predicate) -> List[Position]:
+        return [
+            (x, y)
+            for x in range(self.grid_size)
+            for y in range(self.grid_size)
+            if predicate((x, y))
+        ]
 
     def _sample_unique_positions(self, count: int) -> List[Position]:
         all_positions = [
@@ -292,6 +333,7 @@ class Ecosystem:
             (nx, ny)
             for nx, ny in self.get_adjacent_positions(x, y)
             if self.get_organism_at(nx, ny) is None
+            and is_land_passable(self.get_terrain(nx, ny))
         ]
 
     def get_adjacent_organisms(
@@ -305,6 +347,8 @@ class Ecosystem:
         return matches
 
     def move_organism(self, organism: Organism, new_x: int, new_y: int) -> None:
+        if not is_land_passable(self.get_terrain(new_x, new_y)):
+            return
         origin = (organism.x, organism.y)
         if self.grid.get(origin) is organism:
             self.grid.pop(origin, None)
@@ -330,6 +374,38 @@ class Ecosystem:
         organism.alive = False
         self.grid.pop((organism.x, organism.y), None)
         self._pending_removals.append(organism)
+
+    def get_terrain(self, x: int, y: int) -> TerrainType:
+        return self.terrain_grid.get((x, y), TerrainType.DIRT)
+
+    def can_plant_grow_at(self, x: int, y: int) -> bool:
+        return is_plant_habitable(self.get_terrain(x, y))
+
+    def can_move_to_terrain(self, x: int, y: int) -> bool:
+        return is_land_passable(self.get_terrain(x, y))
+
+    def has_line_of_sight(self, x1: int, y1: int, x2: int, y2: int) -> bool:
+        if (x1, y1) == (x2, y2):
+            return True
+
+        dx = abs(x2 - x1)
+        dy = abs(y2 - y1)
+        sx = 1 if x1 < x2 else -1
+        sy = 1 if y1 < y2 else -1
+        err = dx - dy
+
+        x, y = x1, y1
+        while (x, y) != (x2, y2):
+            e2 = err * 2
+            if e2 > -dy:
+                err -= dy
+                x += sx
+            if e2 < dx:
+                err += dx
+                y += sy
+            if (x, y) != (x2, y2) and self.get_terrain(x, y) == TerrainType.MOUNTAIN:
+                return False
+        return True
 
     def display(self) -> None:
         plant_count = 0

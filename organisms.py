@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 import config
 from genetics import Genome
+from terrain import TerrainType, movement_multiplier
 
 Position = Tuple[int, int]
 
@@ -61,6 +62,11 @@ class Plant(Organism):
             return
 
         new_x, new_y = random.choice(empty_cells)
+        terrain = ecosystem.get_terrain(new_x, new_y)
+        if terrain in (TerrainType.WATER, TerrainType.MOUNTAIN):
+            return
+        if terrain == TerrainType.SAND and random.random() < 0.8:
+            return
         ecosystem.queue_add_organism(Plant(new_x, new_y))
 
 
@@ -126,8 +132,24 @@ class Animal(Organism, ABC):
             return False
 
         new_x, new_y = random.choice(empty_cells)
+        return self._move_to(ecosystem, new_x, new_y)
+
+    def _move_to(self, ecosystem: Ecosystem, new_x: int, new_y: int) -> bool:
+        if not ecosystem.can_move_to_terrain(new_x, new_y):
+            return False
         ecosystem.move_organism(self, new_x, new_y)
+        self._apply_terrain_movement_cost(ecosystem, new_x, new_y)
+        if self.energy <= 0:
+            ecosystem.queue_remove_organism(self)
+            return False
         return True
+
+    def _apply_terrain_movement_cost(self, ecosystem: Ecosystem, x: int, y: int) -> None:
+        terrain = ecosystem.get_terrain(x, y)
+        multiplier = movement_multiplier(terrain)
+        if multiplier <= 1.0:
+            return
+        self.energy -= self.calculate_energy_cost() * (multiplier - 1.0)
 
     # ── Shared perception helper ──────────────────────────────────────────────
 
@@ -157,7 +179,10 @@ class Animal(Organism, ABC):
                 nx, ny = self.x + dx, self.y + dy
                 if 0 <= nx < ecosystem.grid_size and 0 <= ny < ecosystem.grid_size:
                     occupant = ecosystem.get_organism_at(nx, ny)
-                    if isinstance(occupant, organism_type):
+                    if (
+                        isinstance(occupant, organism_type)
+                        and ecosystem.has_line_of_sight(self.x, self.y, nx, ny)
+                    ):
                         results.append(occupant)
         return results
 
@@ -211,7 +236,7 @@ class Herbivore(Animal):
                 / max(0.5, self.genome.speed)
             )
             self.energy += energy_gain
-            ecosystem.move_organism(self, plant.x, plant.y)
+            self._move_to(ecosystem, plant.x, plant.y)
         else:
             if not self._try_reproduce(ecosystem):
                 self.move(ecosystem)
@@ -232,8 +257,7 @@ class Herbivore(Animal):
             empty_cells,
             key=lambda cell: (cell[0] - avg_cx) ** 2 + (cell[1] - avg_cy) ** 2,
         )
-        ecosystem.move_organism(self, best[0], best[1])
-        return True
+        return self._move_to(ecosystem, best[0], best[1])
 
     def _eat(self, ecosystem: Ecosystem) -> Optional[Plant]:
         # Satiation: skip eating when energy is already near the genome-scaled cap.
@@ -318,7 +342,7 @@ class Carnivore(Animal):
                 1.0 + herbivore.genome.size
             )
             self.energy += energy_gain
-            ecosystem.move_organism(self, herbivore.x, herbivore.y)
+            self._move_to(ecosystem, herbivore.x, herbivore.y)
         else:
             if not self._try_reproduce(ecosystem):
                 self.move(ecosystem)
