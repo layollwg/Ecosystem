@@ -53,14 +53,14 @@ class StatsOverlay(tk.Frame):
 
         # Title
         tk.Label(
-            self, text="🌍 ECOSYSTEM",
+            self, text="🌍 生态系统",
             font=(_UI_FONT, 11, "bold"),
             bg=bg, fg=t.get("fg_accent", t["fg"]),
         ).pack(anchor="w")
 
         # Tick / season
         self._tick_lbl = tk.Label(
-            self, text="Tick: —",
+            self, text="Tick：—",
             font=(_UI_FONT, 10),
             bg=bg, fg=t.get("fg_secondary", t["fg"]),
         )
@@ -104,7 +104,7 @@ class StatsOverlay(tk.Frame):
         bal_row.pack(anchor="w", fill="x", pady=(4, 0))
 
         tk.Label(
-            bal_row, text="Balance:",
+            bal_row, text="平衡度：",
             font=(_UI_FONT, 9), bg=bg, fg=t.get("label_fg", t["fg"]),
         ).pack(side="left")
 
@@ -122,7 +122,7 @@ class StatsOverlay(tk.Frame):
 
         # FPS
         self._fps_lbl = tk.Label(
-            self, text="FPS: —",
+            self, text="帧率：—",
             font=(_UI_FONT, 9),
             bg=bg, fg=t.get("perf_fg", t["fg"]),
         )
@@ -131,7 +131,7 @@ class StatsOverlay(tk.Frame):
         # Hint
         tk.Label(
             self,
-            text="Scroll: zoom  |  RMB/MMB drag: pan  |  Dbl-click: reset",
+            text="滚轮缩放、右键/中键拖拽平移、双击左键重置视图",
             font=(_UI_FONT, 8),
             bg=bg, fg=t.get("label_fg", t["fg"]),
         ).pack(anchor="w", pady=(4, 0))
@@ -157,7 +157,7 @@ class StatsOverlay(tk.Frame):
         balance = _calc_balance(plants, herbs, carns)
         self._balance_lbl.config(text=f"{balance}%")
         self._bar_fill.place(relwidth=balance / 100)
-        self._fps_lbl.config(text=f"FPS: {fps:.0f}")
+        self._fps_lbl.config(text=f"帧率：{fps:.0f}")
 
         # Clear any status message once new data arrives
         self._status_lbl.config(text="")
@@ -226,16 +226,16 @@ class PlaybackOverlay(tk.Frame):
             b.pack(side="left", padx=3)
             return b
 
-        self._pause_btn = _btn("⏸  Pause",  self._on_pause_toggle, width=11)
-        self._step_btn  = _btn("⏵  Step",   self._on_step,          width=10)
-        _btn("⏹  Stop",   self._on_stop,          width=10)
+        self._pause_btn = _btn("⏸  暂停",  self._on_pause_toggle, width=11)
+        self._step_btn  = _btn("⏵  单步",   self._on_step,          width=10)
+        _btn("⏹  停止",   self._on_stop,          width=10)
 
         # Speed row
         speed_row = tk.Frame(self, bg=bg)
         speed_row.pack(pady=(4, 0))
 
         tk.Label(
-            speed_row, text="Speed:",
+            speed_row, text="速度：",
             font=font_lbl, bg=bg, fg=t["fg"],
         ).pack(side="left", padx=4)
 
@@ -273,7 +273,7 @@ class PlaybackOverlay(tk.Frame):
 
     def set_paused(self, paused: bool) -> None:
         self._paused = paused
-        label = "▶  Resume" if paused else "⏸  Pause"
+        label = "▶  继续" if paused else "⏸  暂停"
         try:
             self._pause_btn.config(text=label)
         except tk.TclError:
@@ -322,7 +322,7 @@ class PopulationChartModal:
         t = self._theme
         win = tk.Toplevel(self._parent)
         self._window = win
-        win.title("📈 Population History")
+        win.title("📈 种群历史")
         win.configure(bg=t["bg"])
         win.transient(self._parent)
 
@@ -341,13 +341,13 @@ class PopulationChartModal:
         hdr.pack(fill="x", padx=12, pady=(8, 0))
 
         tk.Label(
-            hdr, text="📈  Population History",
+            hdr, text="📈  种群历史",
             font=(_UI_FONT, 14, "bold"),
             bg=t["panel_bg"], fg=t.get("fg_accent", t["fg"]),
         ).pack(side="left", padx=4)
 
         tk.Button(
-            hdr, text="✕  Close",
+            hdr, text="✕  关闭",
             font=(_UI_FONT, 10, "bold"),
             bg=t["button_bg"], fg=t["button_fg"],
             activebackground=t["button_active_bg"],
@@ -445,7 +445,7 @@ class DrawerPanel(tk.Frame):
         self._toggle_btn.pack(side="right")
 
         self._title_lbl = tk.Label(
-            hdr, text="📊 Data",
+            hdr, text="📊 数据",
             font=(_UI_FONT, 10, "bold"),
             bg=bg, fg=t.get("fg_accent", t["fg"]),
         )
@@ -473,7 +473,7 @@ class DrawerPanel(tk.Frame):
         chart_title_row = tk.Frame(chart_hdr, bg=bg)
         chart_title_row.pack(fill="x")
         tk.Label(
-            chart_title_row, text="📈 Population History",
+            chart_title_row, text="📈 种群历史",
             font=(_UI_FONT, 10, "bold"),
             bg=bg, fg=t.get("fg_accent", t["fg"]),
         ).pack(side="left", padx=8, pady=(4, 2))
@@ -482,7 +482,7 @@ class DrawerPanel(tk.Frame):
         # so it is always visible regardless of window height.
         tk.Button(
             chart_title_row,
-            text="⛶ Full",
+            text="⛶ 全屏",
             font=(_UI_FONT, 8),
             bg=t["button_bg"], fg=t["button_fg"],
             activebackground=t["button_active_bg"],
@@ -506,7 +506,7 @@ class DrawerPanel(tk.Frame):
         if self._is_open:
             self._content.pack(fill="both", expand=True, padx=2, pady=2)
             self._toggle_btn.config(text="✕")
-            self._title_lbl.config(text="📊 Data")
+            self._title_lbl.config(text="📊 数据")
             self.place_configure(width=self.OPEN_W)
         else:
             self._content.pack_forget()

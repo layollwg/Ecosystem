@@ -91,7 +91,7 @@ class SimulationPanel(tk.Frame):
 
     def set_complete(self) -> None:
         """Mark the simulation as finished."""
-        self.set_status("✅  Complete — loading results…")
+        self.set_status("✅  模拟完成——正在加载结果…")
 
     def set_paused(self, paused: bool) -> None:
         """Reflect the paused state in the playback overlay."""
@@ -247,12 +247,12 @@ class SimulationPanel(tk.Frame):
 
     def _terrain_name(self, terrain: TerrainType) -> str:
         names = {
-            TerrainType.WATER: "Water",
-            TerrainType.SAND: "Sand",
-            TerrainType.DIRT: "Dirt",
-            TerrainType.MOUNTAIN: "Mountain",
+            TerrainType.WATER: "水域",
+            TerrainType.SAND: "沙地",
+            TerrainType.DIRT: "土壤",
+            TerrainType.MOUNTAIN: "山地",
         }
-        return names.get(terrain, "Unknown")
+        return names.get(terrain, "未知")
 
     def _redraw_full_scene(self) -> None:
         t      = self._theme
@@ -335,13 +335,14 @@ class SimulationPanel(tk.Frame):
         terrain_name = self._terrain_name(terrain)
         if occupant and occupant.alive:
             kind = type(occupant).__name__
+            localized_kind = {"Plant": "植物", "Herbivore": "草食动物", "Carnivore": "肉食动物"}.get(kind, kind)
             if isinstance(occupant, Plant):
                 icon, color = "🌿", t["text_plant"]
                 lines = [
-                    f"{icon}  {kind}  ({gx}, {gy})",
-                    f"Terrain: {terrain_name}",
-                    f"Age: {occupant.age}",
-                    "Energy: N/A",
+                    f"{icon}  {localized_kind}  （{gx}, {gy}）",
+                    f"地形：{terrain_name}",
+                    f"年龄：{occupant.age}",
+                    "能量：不适用",
                 ]
                 secondary = t.get("fg_secondary", t["fg"])
                 colors = [color, secondary, secondary, secondary]
@@ -350,16 +351,16 @@ class SimulationPanel(tk.Frame):
                 color = t["text_herbivore"] if kind == "Herbivore" else t["text_carnivore"]
                 g = occupant.genome  # type: ignore[attr-defined]
                 lines = [
-                    f"{icon}  {kind}  ({gx}, {gy})",
-                    f"Terrain: {terrain_name}",
-                    f"Age: {occupant.age}  |  Energy: {occupant.energy:.1f}",  # type: ignore[attr-defined]
-                    f"Size: {g.size:.2f}  Speed: {g.speed:.2f}  Vision: {g.vision}",
-                    f"Metabolism: {g.metabolism:.2f}  |  {g.get_hex_color()}",
+                    f"{icon}  {localized_kind}  （{gx}, {gy}）",
+                    f"地形：{terrain_name}",
+                    f"年龄：{occupant.age}  |  能量：{occupant.energy:.1f}",  # type: ignore[attr-defined]
+                    f"体型：{g.size:.2f}  速度：{g.speed:.2f}  视野：{g.vision}",
+                    f"代谢：{g.metabolism:.2f}  |  {g.get_hex_color()}",
                 ]
                 secondary = t.get("fg_secondary", t["fg"])
                 colors = [color, secondary, secondary, secondary, secondary]
         else:
-            lines  = [f"Empty  ({gx}, {gy})", f"Terrain: {terrain_name}"]
+            lines  = [f"空格  （{gx}, {gy}）", f"地形：{terrain_name}"]
             colors = [t["label_fg"], t.get("fg_secondary", t["fg"])]
 
         self._tooltip.show(lines, colors, event.x_root, event.y_root)
