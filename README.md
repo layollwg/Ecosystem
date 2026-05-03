@@ -260,3 +260,165 @@ python3 main.py --mode headless \
 ---
 
 如果你想继续扩展本项目，建议优先从 `config.py`（参数）、`organisms.py`（行为规则）、`ui_*`（展示与交互）三个方向入手。
+
+---
+
+## PPNL Single-Goal Grid Path Planning Pipeline
+
+This section covers the dataset generation, preprocessing, and evaluation
+pipeline for the course project *Prompting and Fine-tuning Language Models
+for Grid Path Planning*.
+
+All scripts live in `scripts/` and require **only the Python standard library**
+(no additional pip packages needed).
+
+### Grid convention
+
+| Cell value | Meaning  |
+|:---:|:---|
+| `0` | empty    |
+| `1` | obstacle |
+| `2` | start    |
+| `3` | goal     |
+
+Actions: `up` / `down` / `left` / `right` — lowercase, space-separated.  
+Coordinate system: `(row, col)`, row 0 = top row.
+
+---
+
+### 1) Generate datasets
+
+#### IID splits (6×6, moderate obstacles)
+
+```bash
+# Training set (2000 samples)
+python scripts/generate_single_goal_data.py \
+    --out_dir data/single_goal/6x6 \
+    --grid_size 6 --num_samples 2000 \
+    --seed 42 --n_obstacles_min 4 --n_obstacles_max 6 \
+    --split_name train
+
+# Validation set (500 samples)
+python scripts/generate_single_goal_data.py \
+    --out_dir data/single_goal/6x6 \
+    --grid_size 6 --num_samples 500 \
+    --seed 43 --n_obstacles_min 4 --n_obstacles_max 6 \
+    --split_name valid
+
+# IID test set (500 samples)
+python scripts/generate_single_goal_data.py \
+    --out_dir data/single_goal/6x6 \
+    --grid_size 6 --num_samples 500 \
+    --seed 44 --n_obstacles_min 4 --n_obstacles_max 6 \
+    --split_name test_iid
+```
+
+#### OOD test set (6×6 dense, higher obstacle count)
+
+```bash
+python scripts/generate_single_goal_data.py \
+    --out_dir data/single_goal/6x6_dense \
+    --grid_size 6 --num_samples 500 \
+    --seed 45 --n_obstacles_min 10 --n_obstacles_max 14 \
+    --split_name test_ood
+```
+
+Output files:
+
+```
+data/single_goal/
+  6x6/
+    train.jsonl
+    valid.jsonl
+    test_iid.jsonl
+  6x6_dense/
+    test_ood.jsonl
+```
+
+Each JSONL line contains: `id`, `grid_size`, `world`, `input_coord`,
+`input_grid`, `target`, `meta` (start, goal, obstacles, shortest_path_length,
+obstacle_count, grid_hash).
+
+---
+
+### 2) Preprocess / validate datasets
+
+```bash
+python scripts/data_preprocess.py \
+    --input  data/single_goal/6x6/train.jsonl \
+    --output data/single_goal/6x6/train.jsonl
+
+# Re-derive input templates from raw world grids
+python scripts/data_preprocess.py \
+    --input raw/train.jsonl \
+    --output data/single_goal/6x6/train.jsonl \
+    --rederive
+
+# Skip invalid records instead of failing
+python scripts/data_preprocess.py \
+    --input data/single_goal/6x6/train.jsonl \
+    --output data/single_goal/6x6/train_clean.jsonl \
+    --skip_invalid
+```
+
+---
+
+### 3) Sanity check (verify executor + dataset correctness)
+
+```bash
+# IID dataset
+python scripts/sanity_check.py \
+    --data data/single_goal/6x6/train.jsonl \
+    --n_samples 20 --verbose
+
+# OOD dataset
+python scripts/sanity_check.py \
+    --data data/single_goal/6x6_dense/test_ood.jsonl \
+    --n_samples 20 --verbose
+```
+
+Both commands should print `All checks PASSED ✓`.
+
+Checks performed:
+1. **Gold target** → Success=1, Feasible=1, Optimal=1
+2. **Bad sequence** (`up` × 20) → NOT success
+
+---
+
+### 4) Evaluate model predictions
+
+Create a `predictions.jsonl` with one line per sample containing:
+- `world` — 2-D list of ints (same format as generated data)
+- `target` — gold action sequence
+- `pred` — model output / predicted text
+
+Then run:
+
+```bash
+python scripts/evaluate_executor.py \
+    --predictions outputs/t5-small/predictions.jsonl \
+    --output      outputs/t5-small/metrics.json \
+    --per_sample
+```
+
+Reported metrics:
+- **ParseRate** — fraction where ≥1 action token was extracted
+- **Success Rate** — fraction where agent reached the goal
+- **Feasibility** — fraction with no out-of-bounds / obstacle collision
+- **Optimality** — fraction that succeeded with ≤ gold path length
+
+Quick smoke test (no file needed):
+
+```bash
+python scripts/evaluate_executor.py --demo
+```
+
+---
+
+### Dependencies (PPNL scripts)
+
+The PPNL pipeline scripts use **only the Python standard library** (Python 3.10+):
+`argparse`, `collections`, `hashlib`, `json`, `os`, `random`, `re`, `sys`.
+
+No additional packages are required beyond what is already listed in
+`requirement.txt` for the ecosystem simulation.
